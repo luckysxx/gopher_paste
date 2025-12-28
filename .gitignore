@@ -1,0 +1,11 @@
+# 忽略数据库数据目录
+pg_data/
+redis_data/
+
+# 忽略临时文件和日志
+*.log
+.DS_Store
+
+# 忽略 IDE 配置 
+.idea/
+.vscode/
