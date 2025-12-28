@@ -35,8 +35,8 @@ jobs:
         push: true                      # 构建完自动执行 docker push
         
         tags: |                         # ⚠️ 重点3：打标签 (给镜像起名)
-          ${{ secrets.ALIYUN_REGISTRY }}/.../user_service:latest
-          ${{ secrets.ALIYUN_REGISTRY }}/.../user_service:${{ github.sha }}
+          ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/user_service:latest
+          ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/user_service:${{ github.sha }}
 
     # 4. 构建并推送 Paste Service
     - name: Build Paste Service
