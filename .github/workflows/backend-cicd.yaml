@@ -3,6 +3,7 @@ name: Build Backend & Push
 on:                             # 2. 触发条件开始
   push:                         #    条件A：有人执行了 git push
     branches: [ "main" ]        #    条件B：必须是推送到 main 分支
+    tags: [ "v*" ]              # 👈 新增：只要是 v 开头的 Tag (如 v1.0, v1.1) 也触发
     paths:                      #    条件C：必须是改动了下面这些路径的文件
       - 'backend/**'            #       只有动了 backend 文件夹里的东西才跑
       - '.github/workflows/**'  #       或者改了这个 yaml 文件本身才跑
@@ -37,6 +38,7 @@ jobs:
         tags: |                         # ⚠️ 重点3：打标签 (给镜像起名)
           ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/user_service:latest
           ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/user_service:${{ github.sha }}
+          ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/user_service:${{ github.ref_name }} # 👈 新增这一行
 
     # 4. 构建并推送 Paste Service
     - name: Build Paste Service
@@ -48,3 +50,4 @@ jobs:
         tags: |
           ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/paste_service:latest
           ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/paste_service:${{ github.sha }}
+          ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/paste_service:${{ github.ref_name }} # 👈 新增这一行
