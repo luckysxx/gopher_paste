@@ -1,0 +1,50 @@
+name: Build Backend & Push
+
+on:                             # 2. 触发条件开始
+  push:                         #    条件A：有人执行了 git push
+    branches: [ "main" ]        #    条件B：必须是推送到 main 分支
+    paths:                      #    条件C：必须是改动了下面这些路径的文件
+      - 'backend/**'            #       只有动了 backend 文件夹里的东西才跑
+      - '.github/workflows/**'  #       或者改了这个 yaml 文件本身才跑
+
+jobs:
+  build-and-push:               # 任务ID，随便起名，比如叫 job1 也行
+    runs-on: ubuntu-latest      # 核心！指定运行环境。
+                                # GitHub 会给你开一台最新的 Ubuntu 虚拟机。
+    steps:
+    - name: Checkout code       # 步骤名
+      uses: actions/checkout@v3 # 👈 这是一个“现成的插件”
+
+    - name: Login to Aliyun
+      uses: docker/login-action@v2  # 使用 Docker 官方写的登录插件
+      with:                         # 传参数给这个插件
+        registry: ${{ secrets.ALIYUN_REGISTRY }} # 读取你在网页上配的 Secret
+        username: ${{ secrets.ALIYUN_USERNAME }}
+        password: ${{ secrets.ALIYUN_PASSWORD }}
+
+    - name: Build User Service
+      uses: docker/build-push-action@v4 # Docker 官方的构建插件
+      with:
+        context: ./backend              # ⚠️ 重点1：上下文 (Context)
+                                        # 告诉 Docker：“你的工作目录是 backend 文件夹”
+                                        # 这样 COPY . . 才会只拷贝 backend 里的东西
+        
+        file: ./backend/dockerfile.user # ⚠️ 重点2：Dockerfile 在哪？
+                                        # 必须精确指向那个文件
+        
+        push: true                      # 构建完自动执行 docker push
+        
+        tags: |                         # ⚠️ 重点3：打标签 (给镜像起名)
+          ${{ secrets.ALIYUN_REGISTRY }}/.../user-service:latest
+          ${{ secrets.ALIYUN_REGISTRY }}/.../user-service:${{ github.sha }}
+
+    # 4. 构建并推送 Paste Service
+    - name: Build Paste Service
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        file: ./backend/dockerfile.paste
+        push: true
+        tags: |
+          ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/paste-service:latest
+          ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/paste-service:${{ github.sha }}
