@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   user-service:
-    image: crpi-owej7l76wqheszs7.cn-hangzhou.personal.cr.aliyuncs.com/luckys_devops/user_service
+    image: crpi-owej7l76wqheszs7.cn-hangzhou.personal.cr.aliyuncs.com/luckys_devops/user_service:latest
     ports:
       - "8081:8080"
     networks:
@@ -11,7 +11,7 @@ services:
       - paste-service
 
   paste-service:
-    image: crpi-owej7l76wqheszs7.cn-hangzhou.personal.cr.aliyuncs.com/luckys_devops/paste_service
+    image: crpi-owej7l76wqheszs7.cn-hangzhou.personal.cr.aliyuncs.com/luckys_devops/paste_service:latest
     ports:
       - "8080:8080"
     networks:
