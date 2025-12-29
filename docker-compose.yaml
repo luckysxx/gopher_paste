@@ -14,6 +14,8 @@ services:
     image: crpi-owej7l76wqheszs7.cn-hangzhou.personal.cr.aliyuncs.com/luckys_devops/paste_service:latest
     ports:
       - "8080:8080"
+    environment:
+      - REDIS_ADDR=gopher_redis:6379
     networks:
       - default
 

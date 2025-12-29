@@ -29,6 +29,7 @@ services:
       - ./redis_data:/data
     networks:
       - gopher-net  # 加入这个网络
+      
   prometheus:
     image: prom/prometheus:v2.47.0
     container_name: prometheus

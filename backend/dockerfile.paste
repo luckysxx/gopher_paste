@@ -5,4 +5,4 @@ RUN go mod download
 COPY . .
 RUN go build -o paste_service ./services/paste
 CMD ["./paste_service"]
-Expose 8081
+Expose 8080

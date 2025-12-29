@@ -39,10 +39,10 @@ func LoadConfig() *Config {
 		},
 		Database: DatabaseConfig{
 			Driver: getEnv("DB_DRIVER", "postgres"),
-			Source: getEnv("DB_SOURCE", "postgresql://luckys:123456@postgres:5432/gopher_paste?sslmode=disable"),
+			Source: getEnv("DB_SOURCE", "gopher_db://luckys:123456@postgres:5432/gopher_paste?sslmode=disable"),
 		},
 		Redis: RedisConfig{
-			Addr:     getEnv("REDIS_ADDR", "redis:6379"),
+			Addr:     getEnv("REDIS_ADDR", "gopher_redis:6379"),
 			Password: getEnv("REDIS_PASSWORD", "123456"),
 			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
