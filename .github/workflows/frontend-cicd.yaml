@@ -15,6 +15,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    # =========== 新增步骤 1 & 2 ===========
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
     # 1. 登录阿里云 (复用你之前配好的 Secrets，不用动)
     - name: Login to Aliyun
       uses: docker/login-action@v2
@@ -35,6 +42,9 @@ jobs:
         file: ./frontend/Dockerfile
         
         push: true
+        
+        # =========== 新增参数 ===========
+        platforms: linux/amd64,linux/arm64
         
         # 镜像标签 (Tags)
         # 确保这里的 frontend_service 和你 docker-compose.yml 里写的一模一样

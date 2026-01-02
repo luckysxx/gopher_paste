@@ -1,8 +1,8 @@
-FROM golang:1.25
+FROM golang:1.24
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN go build -o paste_service ./services/paste
 CMD ["./paste_service"]
-Expose 8080
+EXPOSE 8080

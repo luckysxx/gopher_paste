@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   user-service:
     image: crpi-owej7l76wqheszs7.cn-hangzhou.personal.cr.aliyuncs.com/luckys_devops/user_service:latest
