@@ -5,6 +5,7 @@ apiVersion: apps/v1           # API 版本，apps/v1 是标准的稳定版
 kind: Deployment              # 资源类型：部署控制器 (经理)
 metadata:
   name: redis-deployment      # 经理的名字 (给 K8s 管理员看的)
+  namespace: gopher-paste     # 命名空间（独立的项目命名空间）
   labels:
     app: redis                # 给这组资源贴个标签，方便以后筛选
 spec:
@@ -22,10 +23,32 @@ spec:
         image: redis:alpine   # 镜像：和 docker-compose-infra.yaml 里一样
         ports:
         - containerPort: 6379 # 告诉 K8s 这个容器里面监听了 6379
-        # 对应 compose 中的 command: redis-server ... --requirepass "123456"
-        # 这里为了演示简单，我们直接用 args 传递启动命令
-        command: ["redis-server"] 
-        args: ["--appendonly", "yes", "--requirepass", "123456"] 
+        
+        # ==========================================
+        # 环境变量 - 从 Secret 读取密码
+        # ==========================================
+        env:
+        - name: REDIS_PASSWORD  # 环境变量名
+          valueFrom:
+            secretKeyRef:       # 从 Secret 读取
+              name: gopher-secrets  # Secret 的名字
+              key: redis-password   # 读取 redis-password 这个 key
+                                # 💡 K8s 会自动把 Base64 解码成明文
+                                # 💡 容器启动后，REDIS_PASSWORD="123456"
+        
+        # ==========================================
+        # 启动命令 - 使用环境变量中的密码
+        # ==========================================
+        # 💡 之前：args: ["--requirepass", "123456"]  (硬编码，不安全)
+        # 💡 现在：使用 $(REDIS_PASSWORD) 读取环境变量
+        command: ["redis-server"]   # Redis 启动命令
+        args:                       # 启动参数
+          - "--appendonly"          # 启用 AOF 持久化
+          - "yes"                   # AOF 持久化开关
+          - "--requirepass"         # 设置密码参数
+          - "$(REDIS_PASSWORD)"     # 💡 关键！使用环境变量
+                                    # K8s 会自动替换成实际的密码值
+                                    # 等价于：--requirepass 123456
         
         # 注意：为了教学简单，这里暂时没挂载存储卷 (Volume)。
         # 这意味着如果你删了这个 Pod，Redis 里的数据会丢失。
@@ -42,7 +65,8 @@ metadata:
   # 你的 Go 代码里写的环境变量是 REDIS_ADDR=gopher_redis:6379
   # 所以这里的名字必须叫 gopher_redis (或者 gopher-redis，看你代码解析逻辑)
   # K8s 会自动把这个名字注册到内部 DNS 里。
-  name: gopher-redis          
+  name: gopher-redis
+  namespace: gopher-paste     # 命名空间（独立的项目命名空间）          
 spec:
   type: ClusterIP             # 类型：ClusterIP (默认)。
                               # 意思是："只有集群内部的其他 Pod 能访问我，外面的人访问不到"。

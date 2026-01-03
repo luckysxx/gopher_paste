@@ -5,6 +5,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: paste-service-deploy
+  namespace: gopher-paste     # 命名空间（独立的项目命名空间）
+  labels:
+    app: paste-service        # 给 Deployment 添加标签
 spec:
   replicas: 1               # 暂时跑 1 个副本
   selector:
@@ -31,13 +34,111 @@ spec:
         ports:
         - containerPort: 8080 # Go 程序监听的端口
         
-        # === 环境变量配置 ===
+        # ==========================================
+        # 环境变量配置 - 使用 ConfigMap 和 Secret
+        # ==========================================
+        # 💡 之前：所有配置都硬编码在这个文件里
+        # 💡 现在：从 ConfigMap 和 Secret 中读取
+        # 💡 好处：配置集中管理，修改配置不需要重新构建镜像
         env:
-        - name: REDIS_ADDR
-          # 解释：这里填 "gopher-redis:6379"。
-          # 因为我们在上一步创建了一个叫 gopher-redis 的 Service。
-          # K8s 的 DNS 此时会解析：gopher-redis -> Redis Pod 的 IP。
-          value: "gopher-redis:6379" 
+        # ---------- 从 ConfigMap 读取配置 ----------
+        - name: REDIS_ADDR              # 环境变量名（Go 代码中会读取这个）
+          valueFrom:                    # 值来源于...
+            configMapKeyRef:            # ConfigMap 的某个 key
+              name: gopher-config       # ConfigMap 的名字（必须和 configmap.yaml 中的一致）
+              key: redis_addr           # 读取 ConfigMap 中的 redis_addr 字段
+                                        # 💡 容器启动后，REDIS_ADDR="gopher-redis:6379"
+        
+        - name: REDIS_DB                # Redis 数据库编号
+          valueFrom:
+            configMapKeyRef:
+              name: gopher-config
+              key: redis_db             # 💡 容器启动后，REDIS_DB="0"
+        
+        - name: SERVER_PORT             # 服务器监听端口
+          valueFrom:
+            configMapKeyRef:
+              name: gopher-config
+              key: server_port          # 💡 容器启动后，SERVER_PORT="8080"
+        
+        - name: DB_DRIVER               # 数据库驱动
+          valueFrom:
+            configMapKeyRef:
+              name: gopher-config
+              key: db_driver            # 💡 容器启动后，DB_DRIVER="postgres"
+        
+        - name: LOG_LEVEL               # 日志级别
+          valueFrom:
+            configMapKeyRef:
+              name: gopher-config
+              key: log_level            # 💡 容器启动后，LOG_LEVEL="info"
+        
+        - name: GIN_MODE                # Gin 框架模式
+          valueFrom:
+            configMapKeyRef:
+              name: gopher-config
+              key: gin_mode             # 💡 容器启动后，GIN_MODE="release"
+        
+        # ---------- 从 Secret 读取敏感信息 ----------
+        - name: REDIS_PASSWORD          # Redis 密码
+          valueFrom:
+            secretKeyRef:               # 从 Secret 读取
+              name: gopher-secrets      # Secret 的名字（必须和 secret.yaml 中的一致）
+              key: redis-password       # 读取 Secret 中的 redis-password 字段
+                                        # 💡 K8s 会自动把 Base64 解码
+                                        # 💡 容器启动后，REDIS_PASSWORD="123456"
+        
+        - name: JWT_SECRET              # JWT 签名密钥
+          valueFrom:
+            secretKeyRef:
+              name: gopher-secrets
+              key: jwt-secret           # 💡 容器启动后，JWT_SECRET="gopherpaste_secret_key_2026"
+        
+        # ---------- 组合配置：数据库连接串 ----------
+        # 💡 你的 config.go 中有：DB_SOURCE="postgres://user:pass@host:port/db?sslmode=disable"
+        # 💡 我们需要动态组合多个配置项
+        # 💡 方案：在应用代码中组合，或者使用 initContainer 生成
+        # 💡 这里暂时先传递单独的配置，等会儿我们看看你的代码如何处理
+        
+        - name: POSTGRES_HOST           # PostgreSQL 主机名
+          valueFrom:
+            configMapKeyRef:
+              name: gopher-config
+              key: postgres_host        # 💡 容器启动后，POSTGRES_HOST="gopher-postgres"
+        
+        - name: POSTGRES_PORT           # PostgreSQL 端口
+          valueFrom:
+            configMapKeyRef:
+              name: gopher-config
+              key: postgres_port        # 💡 容器启动后，POSTGRES_PORT="5432"
+        
+        - name: POSTGRES_DB             # 数据库名称
+          valueFrom:
+            configMapKeyRef:
+              name: gopher-config
+              key: postgres_db          # 💡 容器启动后，POSTGRES_DB="gopher_paste"
+        
+        - name: POSTGRES_USER           # PostgreSQL 用户名
+          valueFrom:
+            secretKeyRef:
+              name: gopher-secrets
+              key: postgres-user        # 💡 容器启动后，POSTGRES_USER="postgres"
+        
+        - name: POSTGRES_PASSWORD       # PostgreSQL 密码
+          valueFrom:
+            secretKeyRef:
+              name: gopher-secrets
+              key: postgres-password    # 💡 容器启动后，POSTGRES_PASSWORD="mysupersecretpassword"
+        
+        - name: POSTGRES_SSLMODE        # PostgreSQL SSL 模式
+          valueFrom:
+            configMapKeyRef:
+              name: gopher-config
+              key: postgres_sslmode     # 💡 容器启动后，POSTGRES_SSLMODE="disable"
+        
+        # 💡 注意：你的 config.go 需要读取 DB_SOURCE 环境变量
+        # 💡 我们需要修改代码，让它从单独的环境变量中组合连接串
+        # 💡 或者使用 Kubernetes 的 $(VAR) 语法组合（但不推荐，容易出错） 
 
 ---
 # ==========================================
@@ -47,6 +148,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: paste-service       # 服务的名字
+  namespace: gopher-paste   # 命名空间（独立的项目命名空间）
+  labels:
+    app: paste-service      # 给 Service 添加标签
 spec:
   # ⚠️ 类型：LoadBalancer
   # 因为这是 Web 服务，我们(用户)需要在 Mac 浏览器上访问它。

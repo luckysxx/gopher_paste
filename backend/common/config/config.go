@@ -33,13 +33,32 @@ type JWTConfig struct {
 
 // LoadConfig 从环境变量加载配置（后期可改为配置文件）
 func LoadConfig() *Config {
+	// 💡 优化：支持从单独的环境变量组合数据库连接串
+	// 这样可以配合 Kubernetes ConfigMap/Secret 使用
+	dbSource := getEnv("DB_SOURCE", "")
+	if dbSource == "" {
+		// 如果没有 DB_SOURCE，就从单独的环境变量中组合
+		// 格式：postgres://user:password@host:port/dbname?sslmode=disable
+		pgUser := getEnv("POSTGRES_USER", "postgres")
+		pgPassword := getEnv("POSTGRES_PASSWORD", "123456")
+		pgHost := getEnv("POSTGRES_HOST", "postgres")
+		pgPort := getEnv("POSTGRES_PORT", "5432")
+		pgDB := getEnv("POSTGRES_DB", "gopher_paste")
+		pgSSLMode := getEnv("POSTGRES_SSLMODE", "disable")
+		
+		// 💡 修复：正确的 PostgreSQL 连接串格式
+		// postgres://用户名:密码@主机:端口/数据库名?参数
+		dbSource = "postgres://" + pgUser + ":" + pgPassword + "@" + 
+		           pgHost + ":" + pgPort + "/" + pgDB + "?sslmode=" + pgSSLMode
+	}
+	
 	return &Config{
 		Server: ServerConfig{
 			Port: getEnv("SERVER_PORT", "8080"),
 		},
 		Database: DatabaseConfig{
 			Driver: getEnv("DB_DRIVER", "postgres"),
-			Source: getEnv("DB_SOURCE", "gopher_db://luckys:123456@postgres:5432/gopher_paste?sslmode=disable"),
+			Source: dbSource,
 		},
 		Redis: RedisConfig{
 			Addr:     getEnv("REDIS_ADDR", "gopher_redis:6379"),
