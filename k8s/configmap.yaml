@@ -33,22 +33,19 @@ data:
   redis_db: "0"                 # Redis 数据库编号（默认是 0）
                                 # 💡 Redis 默认有 16 个数据库（0-15）
 
-  # ---------- PostgreSQL 配置 ----------
+  # ---------- 数据库配置 ----------
+  # 💡 简化配置：使用完整的数据库连接字符串（敏感信息放在 Secret 中）
+  # 格式：postgres://user:password@host:port/dbname?sslmode=disable
+  # 支持其他数据库：mysql://user:password@host:port/dbname
   db_driver: "postgres"         # 数据库驱动类型
-  
-  postgres_host: "gopher-postgres"  
-                                # PostgreSQL 服务的主机名
-                                # 💡 等我们创建 postgres.yaml 后，这个名字会指向 PostgreSQL Pod
-  
-  postgres_port: "5432"         # PostgreSQL 默认端口
-  
-  postgres_db: "gopher_paste"   # 数据库名称
-                                # 💡 需要和你创建数据库时的名字一致
-  
-  postgres_sslmode: "disable"   # SSL 模式（开发环境禁用，生产环境建议启用）
-                                # 可选值：disable, require, verify-ca, verify-full
+  # 注意：DB_SOURCE 包含密码，应该放在 Secret 中，这里仅做说明
+  # db_source: "postgres://user:password@gopher-postgres:5432/gopher_paste?sslmode=disable"
 
   # ---------- 应用配置 ----------
+  env: "production"             # 应用运行环境
+                                # 可选值：dev, development, production, prod, container
+                                # 💡 影响日志级别和输出方式
+  
   log_level: "info"             # 日志级别
                                 # 可选值：debug, info, warn, error
                                 # 💡 开发环境用 debug，生产环境用 info 或 warn
@@ -57,7 +54,7 @@ data:
                                 # debug: 开发模式，输出详细日志
                                 # release: 生产模式，性能更好
   
-  app_env: "development"        # 应用环境标识
+  app_env: "development"        # 应用环境标识（备用）
                                 # 可选值：development, staging, production
                                 # 💡 你可以在代码中根据这个值调整行为
 

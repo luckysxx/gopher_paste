@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 
+	"project/common/auth"
 	"project/common/config"
 	"project/common/database"
 	"project/common/logger"
@@ -32,11 +33,12 @@ func main() {
 
 	// 依赖注入
 	userRepo := repository.NewUserRepository(queries)
-	userSvc := service.NewUserService(userRepo, log)
+	jwtManager := auth.NewJWTManager(cfg.JWT.Secret)
+	userSvc := service.NewUserService(userRepo, jwtManager, log)
 	userHandler := handler.NewUserHandler(userSvc, log)
 
 	// 路由
 	r := gin.New()
 	api.SetupRouter(r, userHandler, log)
-	r.Run(":8081")
+	r.Run(":" + cfg.Server.Port)
 }

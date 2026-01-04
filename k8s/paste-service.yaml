@@ -42,6 +42,12 @@ spec:
         # 💡 好处：配置集中管理，修改配置不需要重新构建镜像
         env:
         # ---------- 从 ConfigMap 读取配置 ----------
+        - name: ENV                     # 运行环境（用于日志配置）
+          valueFrom:
+            configMapKeyRef:
+              name: gopher-config
+              key: env                  # 💡 容器启动后，ENV="production"
+        
         - name: REDIS_ADDR              # 环境变量名（Go 代码中会读取这个）
           valueFrom:                    # 值来源于...
             configMapKeyRef:            # ConfigMap 的某个 key
@@ -66,6 +72,13 @@ spec:
             configMapKeyRef:
               name: gopher-config
               key: db_driver            # 💡 容器启动后，DB_DRIVER="postgres"
+        
+        # ---------- 从 Secret 读取数据库连接字符串 ----------
+        - name: DB_SOURCE               # 数据库完整连接字符串
+          valueFrom:
+            secretKeyRef:
+              name: gopher-secrets
+              key: db-source            # 💡 包含用户名、密码等敏感信息
         
         - name: LOG_LEVEL               # 日志级别
           valueFrom:
@@ -93,52 +106,11 @@ spec:
             secretKeyRef:
               name: gopher-secrets
               key: jwt-secret           # 💡 容器启动后，JWT_SECRET="gopherpaste_secret_key_2026"
-        
-        # ---------- 组合配置：数据库连接串 ----------
-        # 💡 你的 config.go 中有：DB_SOURCE="postgres://user:pass@host:port/db?sslmode=disable"
-        # 💡 我们需要动态组合多个配置项
-        # 💡 方案：在应用代码中组合，或者使用 initContainer 生成
-        # 💡 这里暂时先传递单独的配置，等会儿我们看看你的代码如何处理
-        
-        - name: POSTGRES_HOST           # PostgreSQL 主机名
-          valueFrom:
-            configMapKeyRef:
-              name: gopher-config
-              key: postgres_host        # 💡 容器启动后，POSTGRES_HOST="gopher-postgres"
-        
-        - name: POSTGRES_PORT           # PostgreSQL 端口
-          valueFrom:
-            configMapKeyRef:
-              name: gopher-config
-              key: postgres_port        # 💡 容器启动后，POSTGRES_PORT="5432"
-        
-        - name: POSTGRES_DB             # 数据库名称
-          valueFrom:
-            configMapKeyRef:
-              name: gopher-config
-              key: postgres_db          # 💡 容器启动后，POSTGRES_DB="gopher_paste"
-        
-        - name: POSTGRES_USER           # PostgreSQL 用户名
-          valueFrom:
-            secretKeyRef:
-              name: gopher-secrets
-              key: postgres-user        # 💡 容器启动后，POSTGRES_USER="postgres"
-        
-        - name: POSTGRES_PASSWORD       # PostgreSQL 密码
-          valueFrom:
-            secretKeyRef:
-              name: gopher-secrets
-              key: postgres-password    # 💡 容器启动后，POSTGRES_PASSWORD="mysupersecretpassword"
-        
-        - name: POSTGRES_SSLMODE        # PostgreSQL SSL 模式
-          valueFrom:
-            configMapKeyRef:
-              name: gopher-config
-              key: postgres_sslmode     # 💡 容器启动后，POSTGRES_SSLMODE="disable"
-        
-        # 💡 注意：你的 config.go 需要读取 DB_SOURCE 环境变量
-        # 💡 我们需要修改代码，让它从单独的环境变量中组合连接串
-        # 💡 或者使用 Kubernetes 的 $(VAR) 语法组合（但不推荐，容易出错） 
+
+        # 💡 配置简化说明：
+        # ✅ 已使用 DB_SOURCE 统一配置数据库连接
+        # ❌ 已移除分散的 POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_SSLMODE
+        # 💡 这样配置更简洁，修改更方便
 
 ---
 # ==========================================

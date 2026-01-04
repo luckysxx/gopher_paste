@@ -36,10 +36,10 @@ func main() {
 	// 依赖注入
 	pasteRepo := repository.NewPasteRepository(queries)
 	pasteSvc := service.NewPasteService(pasteRepo, cacheInstance, log)
-	pasteHandler := handler.NewPasteHandler(pasteSvc)
+	pasteHandler := handler.NewPasteHandler(pasteSvc, log)
 
 	// 路由
 	r := gin.New()
 	api.SetupRouter(r, pasteHandler, log)
-	r.Run(":8080")
+	r.Run(":" + cfg.Server.Port)
 }

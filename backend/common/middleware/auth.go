@@ -10,7 +10,7 @@ import (
 )
 
 // JWTAuthMiddleware 认证中间件
-func JWTAuthMiddleware() gin.HandlerFunc {
+func JWTAuthMiddleware(jwtManager *auth.JWTManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. 获取 Header 中的 Authorization
 		authHeader := c.GetHeader("Authorization")
@@ -29,7 +29,7 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 		}
 
 		// 3. 解析 Token
-		claims, err := auth.ParseToken(parts[1])
+		claims, err := jwtManager.ParseToken(parts[1])
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token 无效或已过期"})
 			c.Abort()

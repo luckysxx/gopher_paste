@@ -7,16 +7,26 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte("gopherpaste_secret_key")
-
 // Claims 定义 JWT 载荷结构
 type Claims struct {
 	UserID int64 `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
+// JWTManager JWT 管理器
+type JWTManager struct {
+	secret []byte
+}
+
+// NewJWTManager 创建 JWT 管理器
+func NewJWTManager(secret string) *JWTManager {
+	return &JWTManager{
+		secret: []byte(secret),
+	}
+}
+
 // GenerateToken 生成 JWT
-func GenerateToken(userID int64) (string, error) {
+func (j *JWTManager) GenerateToken(userID int64) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -26,13 +36,13 @@ func GenerateToken(userID int64) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	return token.SignedString(j.secret)
 }
 
 // ParseToken 解析并验证 JWT
-func ParseToken(tokenString string) (*Claims, error) {
+func (j *JWTManager) ParseToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
+		return j.secret, nil
 	})
 
 	if err != nil {

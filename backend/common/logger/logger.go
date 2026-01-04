@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"fmt"
 	"os"
 
 	"go.uber.org/zap"
@@ -23,24 +22,46 @@ func NewLogger(serviceName string) *zap.Logger {
 		EncodeCaller: zapcore.ShortCallerEncoder,
 	}
 
-	file, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		fmt.Println("无法打开日志文件:", err)
-		return zap.NewExample()
-	}
-
 	// 开发环境使用Debug级别，生产环境使用Info级别
 	level := zapcore.InfoLevel
-	if os.Getenv("ENV") == "dev" || os.Getenv("ENV") == "development" {
+	env := os.Getenv("ENV")
+	if env == "dev" || env == "development" {
 		level = zapcore.DebugLevel
+	}
+
+	// 判断日志输出方式
+	// 1. 容器环境 (ENV=production/prod/container)：只输出到 stdout
+	// 2. 本地开发环境：同时输出到 stdout 和文件
+	// 3. 可通过 LOG_FILE 环境变量自定义文件路径
+	var writeSyncer zapcore.WriteSyncer
+
+	isContainer := env == "production" || env == "prod" || env == "container"
+	logFile := os.Getenv("LOG_FILE")
+
+	if isContainer && logFile == "" {
+		// 容器环境且未指定文件：只输出到 stdout
+		writeSyncer = zapcore.AddSync(os.Stdout)
+	} else {
+		// 本地开发环境或指定了 LOG_FILE：同时输出到 stdout 和文件
+		if logFile == "" {
+			logFile = "app.log" // 本地开发默认文件
+		}
+
+		file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			// 文件打开失败，降级到只输出 stdout
+			writeSyncer = zapcore.AddSync(os.Stdout)
+		} else {
+			writeSyncer = zapcore.NewMultiWriteSyncer(
+				zapcore.AddSync(os.Stdout),
+				zapcore.AddSync(file),
+			)
+		}
 	}
 
 	core := zapcore.NewCore(
 		zapcore.NewConsoleEncoder(config),
-		zapcore.NewMultiWriteSyncer(
-			zapcore.AddSync(os.Stdout),
-			zapcore.AddSync(file),
-		),
+		writeSyncer,
 		level,
 	)
 

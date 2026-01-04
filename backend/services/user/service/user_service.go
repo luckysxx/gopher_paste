@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"project/common/auth"
 	"project/services/user/db"
@@ -12,18 +13,26 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// 领域错误定义（协议无关）
+var (
+	ErrUserNotFound       = repository.ErrUserNotFound // 复用 Repository 的错误
+	ErrInvalidCredentials = errors.New("用户名或密码错误")
+	ErrTokenGeneration    = errors.New("生成 Token 失败")
+)
+
 type UserService interface {
 	Register(ctx context.Context, req *model.RegisterRequest) (*model.RegisterResponse, error)
 	Login(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error)
 }
 
 type userService struct {
-	repo   repository.UserRepository
-	logger *zap.Logger
+	repo       repository.UserRepository
+	logger     *zap.Logger
+	jwtManager *auth.JWTManager
 }
 
-func NewUserService(repo repository.UserRepository, logger *zap.Logger) UserService {
-	return &userService{repo: repo, logger: logger}
+func NewUserService(repo repository.UserRepository, jwtManager *auth.JWTManager, logger *zap.Logger) UserService {
+	return &userService{repo: repo, jwtManager: jwtManager, logger: logger}
 }
 
 func (s *userService) Register(ctx context.Context, req *model.RegisterRequest) (*model.RegisterResponse, error) {
@@ -44,7 +53,8 @@ func (s *userService) Register(ctx context.Context, req *model.RegisterRequest) 
 	// 调用数据库创建用户
 	user, err := s.repo.Create(ctx, params)
 	if err != nil {
-		return nil, err
+		s.logger.Error("创建用户失败", zap.Error(err))
+		return nil, fmt.Errorf("数据库错误: %w", err)
 	}
 
 	resp := &model.RegisterResponse{
@@ -60,18 +70,25 @@ func (s *userService) Login(ctx context.Context, req *model.LoginRequest) (*mode
 	// 根据用户名获取用户
 	user, err := s.repo.GetByUsername(ctx, req.Username)
 	if err != nil {
-		return nil, fmt.Errorf("用户名或密码错误")
+		if errors.Is(err, repository.ErrUserNotFound) {
+			// 返回领域错误，不泄露具体是用户名错误
+			return nil, ErrInvalidCredentials
+		}
+		// 其他数据库错误
+		s.logger.Error("查询用户失败", zap.Error(err))
+		return nil, fmt.Errorf("数据库错误: %w", err)
 	}
 
 	// 比较密码
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return nil, fmt.Errorf("密码错误")
+		return nil, ErrInvalidCredentials
 	}
 
 	// 生成 JWT Token
-	token, err := auth.GenerateToken(user.ID)
+	token, err := s.jwtManager.GenerateToken(user.ID)
 	if err != nil {
-		return nil, fmt.Errorf("生成 Token 失败: %v", err)
+		s.logger.Error("生成 Token 失败", zap.Error(err))
+		return nil, fmt.Errorf("%w: %v", ErrTokenGeneration, err)
 	}
 
 	// 生成登录响应

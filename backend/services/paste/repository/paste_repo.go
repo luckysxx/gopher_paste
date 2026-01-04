@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"project/common/errs"
 	"project/services/paste/db"
 )
 
@@ -27,7 +26,7 @@ func NewPasteRepository(q *db.Queries) PasteRepository {
 func (r *pasteRepository) Create(ctx context.Context, params *db.CreatePasteParams) (*db.Paste, error) {
 	paste, err := r.q.CreatePaste(ctx, *params)
 	if err != nil {
-		return nil, errs.NewServerErr(fmt.Errorf("创建 paste 失败: %w", err))
+		return nil, fmt.Errorf("创建 paste 失败: %w", err)
 	}
 	return &paste, nil
 }
@@ -38,7 +37,7 @@ func (r *pasteRepository) GetByShortLink(ctx context.Context, shortLink string) 
 		return nil, ErrPasteNotFound
 	}
 	if err != nil {
-		return nil, errs.NewServerErr(fmt.Errorf("查询 paste 失败 (shortLink=%s): %w", shortLink, err))
+		return nil, fmt.Errorf("查询 paste 失败 (shortLink=%s): %w", shortLink, err)
 	}
-	return &paste, err
+	return &paste, nil
 }

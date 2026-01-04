@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"project/common/errs"
 	"project/common/response"
 	"project/services/user/model"
 	"project/services/user/service"
@@ -10,12 +12,12 @@ import (
 )
 
 type UserHandler struct {
-	Log *zap.Logger
-	svc service.UserService
+	svc    service.UserService
+	logger *zap.Logger
 }
 
-func NewUserHandler(svc service.UserService, log *zap.Logger) *UserHandler {
-	return &UserHandler{svc: svc, Log: log}
+func NewUserHandler(svc service.UserService, logger *zap.Logger) *UserHandler {
+	return &UserHandler{svc: svc, logger: logger}
 }
 
 // @Summary      用户注册
@@ -29,15 +31,16 @@ func NewUserHandler(svc service.UserService, log *zap.Logger) *UserHandler {
 func (h *UserHandler) Register(c *gin.Context) {
 	var req model.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.Log.Warn("参数绑定失败", zap.Error(err))
+		h.logger.Warn("参数绑定失败", zap.Error(err))
 		response.BadRequest(c, "参数错误")
 		return
 	}
 
 	user, err := h.svc.Register(c.Request.Context(), &req)
 	if err != nil {
-		h.Log.Error("用户注册失败", zap.Error(err))
-		response.Error(c, err)
+		// Handler 层转换错误
+		h.logger.Error("用户注册失败", zap.Error(err))
+		response.Error(c, errs.NewServerErr(err))
 		return
 	}
 	response.Success(c, user)
@@ -54,15 +57,20 @@ func (h *UserHandler) Register(c *gin.Context) {
 func (h *UserHandler) Login(c *gin.Context) {
 	var req model.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.Log.Warn("参数绑定失败", zap.Error(err))
+		h.logger.Warn("参数绑定失败", zap.Error(err))
 		response.BadRequest(c, "参数错误")
 		return
 	}
 
 	user, err := h.svc.Login(c.Request.Context(), &req)
 	if err != nil {
-		h.Log.Error("用户登录失败", zap.Error(err))
-		response.Error(c, err)
+		// Handler 层判断错误类型并转换
+		if errors.Is(err, service.ErrInvalidCredentials) {
+			response.Error(c, errs.NewParamErr("用户名或密码错误", err))
+			return
+		}
+		h.logger.Error("用户登录失败", zap.Error(err))
+		response.Error(c, errs.NewServerErr(err))
 		return
 	}
 	response.Success(c, user)

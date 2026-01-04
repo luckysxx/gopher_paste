@@ -3,20 +3,22 @@ package handler
 
 import (
 	"errors"
+	"project/common/errs"
 	"project/common/response"
 	"project/services/paste/model"
-	"project/services/paste/repository"
 	"project/services/paste/service"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type PasteHandler struct {
-	svc service.PasteService
+	svc    service.PasteService
+	logger *zap.Logger
 }
 
-func NewPasteHandler(svc service.PasteService) *PasteHandler {
-	return &PasteHandler{svc: svc}
+func NewPasteHandler(svc service.PasteService, logger *zap.Logger) *PasteHandler {
+	return &PasteHandler{svc: svc, logger: logger}
 }
 
 // @Summary      创建代码片段
@@ -35,7 +37,13 @@ func (h *PasteHandler) Create(c *gin.Context) {
 
 	paste, err := h.svc.Create(c.Request.Context(), &req)
 	if err != nil {
-		response.Error(c, err)
+		// Handler 层将 Service 的错误转换为 HTTP 错误
+		h.logger.Error("创建 paste 失败", zap.Error(err))
+		if errors.Is(err, service.ErrShortLinkGeneration) {
+			response.Error(c, errs.New(errs.ServerErr, "系统繁忙，请稍后再试", err))
+		} else {
+			response.Error(c, errs.NewServerErr(err))
+		}
 		return
 	}
 	response.Success(c, paste)
@@ -52,11 +60,13 @@ func (h *PasteHandler) Get(c *gin.Context) {
 
 	paste, err := h.svc.GetByShortLink(c.Request.Context(), shortLink)
 	if err != nil {
-		if errors.Is(err, repository.ErrPasteNotFound) {
-			response.NotFound(c, "Not Found")
+		// Handler 层判断错误类型并转换
+		if errors.Is(err, service.ErrPasteNotFound) {
+			response.NotFound(c, "Paste 不存在")
 			return
 		}
-		response.Error(c, err)
+		h.logger.Error("查询 paste 失败", zap.Error(err))
+		response.Error(c, errs.NewServerErr(err))
 		return
 	}
 	response.Success(c, paste)
