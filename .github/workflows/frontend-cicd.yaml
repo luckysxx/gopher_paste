@@ -41,9 +41,9 @@ jobs:
         # 只构建 amd64，速度提升 2-3 倍
         platforms: linux/amd64
         
-        # 启用缓存，大幅加快后续构建
-        cache-from: type=registry,ref=${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/frontend_service:buildcache
-        cache-to: type=registry,ref=${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/frontend_service:buildcache,mode=max
+        # 使用 inline 缓存（兼容阿里云）
+        cache-from: type=registry,ref=${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/frontend_service:latest
+        cache-to: type=inline
         
         tags: |
           ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/frontend_service:latest
