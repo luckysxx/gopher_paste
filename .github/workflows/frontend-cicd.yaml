@@ -24,7 +24,7 @@ jobs:
 
     # 1. 登录阿里云 (复用你之前配好的 Secrets，不用动)
     - name: Login to Aliyun
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       with:
         registry: ${{ secrets.ALIYUN_REGISTRY }}
         username: ${{ secrets.ALIYUN_USERNAME }}
