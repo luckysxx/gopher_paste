@@ -16,15 +16,15 @@ services:
       - paste-service
 
   paste-service:
-    imagSERVER_PORT=8080
-      - DB_SOURCE=postgres://luckys:123456@gopher_db:5432/gopher_paste?sslmode=disable
-      - REDIS_ADDR=gopher_redis:6379
-      - REDIS_PASSWORD=123456hangzhou.personal.cr.aliyuncs.com/luckys_devops/paste_service:latest
+    image: crpi-owej7l76wqheszs7.cn-hangzhou.personal.cr.aliyuncs.com/luckys_devops/paste_service:latest
     ports:
       - "8080:8080"
     environment:
       - ENV=production
+      - SERVER_PORT=8080
+      - DB_SOURCE=postgres://luckys:123456@gopher_db:5432/gopher_paste?sslmode=disable
       - REDIS_ADDR=gopher_redis:6379
+      - REDIS_PASSWORD=123456
     networks:
       - default
 
