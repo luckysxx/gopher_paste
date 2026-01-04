@@ -1,55 +1,67 @@
 name: Build Backend & Push
 
-on:                             # 2. 触发条件开始
-  push:                         #    条件A：有人执行了 git push
-    branches: [ "main" ]        #    条件B：必须是推送到 main 分支
-    tags: [ "v*" ]              # 👈 新增：只要是 v 开头的 Tag (如 v1.0, v1.1) 也触发
-    paths:                      #    条件C：必须是改动了下面这些路径的文件
-      - 'backend/**'            #       只有动了 backend 文件夹里的东西才跑
-      - '.github/workflows/backend-cicd.yaml'  # 建议把文件名也加进去
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-cicd.yaml'
 
 jobs:
-  build-and-push:               # 任务ID，随便起名，比如叫 job1 也行
-    runs-on: ubuntu-latest      # 核心！指定运行环境。
-                                # GitHub 会给你开一台最新的 Ubuntu 虚拟机。
+  # 并行构建 User Service
+  build-user-service:
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout code       # 步骤名
-      uses: actions/checkout@v3 # 👈 这是一个“现成的插件”
-    # =========== 新增步骤 1：设置 QEMU (用于跨平台构建) ===========
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-    # =========== 新增步骤 2：设置 Buildx (高级构建工具) ===========
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
+
     - name: Login to Aliyun
-      uses: docker/login-action@v3  # 使用 Docker 官方写的登录插件（升级到 v3）
-      with:                         # 传参数给这个插件
-        registry: ${{ secrets.ALIYUN_REGISTRY }} # 读取你在网页上配的 Secret
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ secrets.ALIYUN_REGISTRY }}
         username: ${{ secrets.ALIYUN_USERNAME }}
         password: ${{ secrets.ALIYUN_PASSWORD }}
 
     - name: Build User Service
-      uses: docker/build-push-action@v4 # Docker 官方的构建插件
+      uses: docker/build-push-action@v4
       with:
-        context: ./backend              # ⚠️ 重点1：上下文 (Context)
-                                        # 告诉 Docker：“你的工作目录是 backend 文件夹”
-                                        # 这样 COPY . . 才会只拷贝 backend 里的东西
+        context: ./backend
+        file: ./backend/dockerfile.user
+        push: true
         
-        file: ./backend/dockerfile.user # ⚠️ 重点2：Dockerfile 在哪？
-                                        # 必须精确指向那个文件
+        # 只构建 amd64，速度提升 2-3 倍
+        platforms: linux/amd64
         
-        push: true                      # 构建完自动执行 docker push
+        # 启用缓存
+        cache-from: type=registry,ref=${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/user_service:buildcache
+        cache-to: type=registry,ref=${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/user_service:buildcache,mode=max
         
-        # =========== 新增参数：指定构建两个平台 ===========
-        platforms: linux/amd64,linux/arm64
-        
-        tags: |                         # ⚠️ 重点3：打标签 (给镜像起名)
+        tags: |
           ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/user_service:latest
           ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/user_service:${{ github.sha }}
           ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/user_service:${{ github.ref_name }}
 
-    # 4. 构建并推送 Paste Service
+  # 并行构建 Paste Service
+  build-paste-service:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Login to Aliyun
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ secrets.ALIYUN_REGISTRY }}
+        username: ${{ secrets.ALIYUN_USERNAME }}
+        password: ${{ secrets.ALIYUN_PASSWORD }}
+
     - name: Build Paste Service
       uses: docker/build-push-action@v4
       with:
@@ -57,8 +69,12 @@ jobs:
         file: ./backend/dockerfile.paste
         push: true
         
-        # =========== 新增参数：指定构建两个平台 ===========
-        platforms: linux/amd64,linux/arm64
+        # 只构建 amd64
+        platforms: linux/amd64
+        
+        # 启用缓存
+        cache-from: type=registry,ref=${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/paste_service:buildcache
+        cache-to: type=registry,ref=${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/paste_service:buildcache,mode=max
         
         tags: |
           ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/paste_service:latest

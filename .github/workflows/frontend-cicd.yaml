@@ -34,20 +34,17 @@ jobs:
     - name: Build Frontend Service
       uses: docker/build-push-action@v4
       with:
-        # 上下文 Context
-        # 这里必须指向 ./frontend，因为你的 Dockerfile 里的 COPY . . 是基于这个目录运行的
         context: ./frontend
-        
-        # Dockerfile 位置
         file: ./frontend/Dockerfile
-        
         push: true
         
-        # =========== 新增参数 ===========
-        platforms: linux/amd64,linux/arm64
+        # 只构建 amd64，速度提升 2-3 倍
+        platforms: linux/amd64
         
-        # 镜像标签 (Tags)
-        # 确保这里的 frontend_service 和你 docker-compose.yml 里写的一模一样
+        # 启用缓存，大幅加快后续构建
+        cache-from: type=registry,ref=${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/frontend_service:buildcache
+        cache-to: type=registry,ref=${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/frontend_service:buildcache,mode=max
+        
         tags: |
           ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/frontend_service:latest
           ${{ secrets.ALIYUN_REGISTRY }}/luckys_devops/frontend_service:${{ github.sha }}
