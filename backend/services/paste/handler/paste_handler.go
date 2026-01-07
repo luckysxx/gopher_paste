@@ -3,6 +3,7 @@ package handler
 
 import (
 	"errors"
+	"project/common/dberr"
 	"project/common/errs"
 	"project/common/response"
 	"project/services/paste/model"
@@ -37,13 +38,16 @@ func (h *PasteHandler) Create(c *gin.Context) {
 
 	paste, err := h.svc.Create(c.Request.Context(), &req)
 	if err != nil {
-		// Handler 层将 Service 的错误转换为 HTTP 错误
 		h.logger.Error("创建 paste 失败", zap.Error(err))
+
+		// 短链接生成失败需要特殊消息
 		if errors.Is(err, service.ErrShortLinkGeneration) {
 			response.Error(c, errs.New(errs.ServerErr, "系统繁忙，请稍后再试", err))
-		} else {
-			response.Error(c, errs.NewServerErr(err))
+			return
 		}
+
+		// 其他错误统一转换
+		response.Error(c, errs.ConvertToCustomError(err))
 		return
 	}
 	response.Success(c, paste)
@@ -60,13 +64,16 @@ func (h *PasteHandler) Get(c *gin.Context) {
 
 	paste, err := h.svc.GetByShortLink(c.Request.Context(), shortLink)
 	if err != nil {
-		// Handler 层判断错误类型并转换
-		if errors.Is(err, service.ErrPasteNotFound) {
+		h.logger.Error("查询 paste 失败", zap.Error(err))
+
+		// NotFound 错误需要特殊的 HTTP 状态码
+		if dberr.IsNotFoundError(err) {
 			response.NotFound(c, "Paste 不存在")
 			return
 		}
-		h.logger.Error("查询 paste 失败", zap.Error(err))
-		response.Error(c, errs.NewServerErr(err))
+
+		// 其他错误统一转换
+		response.Error(c, errs.ConvertToCustomError(err))
 		return
 	}
 	response.Success(c, paste)

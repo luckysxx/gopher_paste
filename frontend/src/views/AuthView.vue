@@ -100,9 +100,12 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound, CircleCheck, Key, Message, Right } from '@element-plus/icons-vue'
+import { login, register } from '@/api/user'
 
+const router = useRouter()
 const activeTab = ref('login')
 
 const loginForm = reactive({
@@ -122,12 +125,58 @@ const informPreview = () => {
   ElMessage.info('当前为界面示例，尚未接入实际认证逻辑')
 }
 
-const handleLogin = () => {
-  informPreview()
+const handleLogin = async () => {
+  if (!loginForm.account || !loginForm.password) {
+    ElMessage.warning('请填写完整的登录信息')
+    return
+  }
+
+  try {
+    const res = await login({
+      username: loginForm.account,
+      password: loginForm.password,
+    })
+    
+    // 保存 token 到 localStorage
+    localStorage.setItem('token', res.token)
+    localStorage.setItem('user', JSON.stringify({
+      id: res.user_id,
+      username: res.username,
+      email: res.email,
+    }))
+    
+    ElMessage.success('登录成功！')
+    router.push('/')
+  } catch (error: any) {
+    ElMessage.error(error.message || '登录失败，请检查用户名和密码')
+  }
 }
 
-const handleRegister = () => {
-  informPreview()
+const handleRegister = async () => {
+  if (!registerForm.email || !registerForm.username || !registerForm.password) {
+    ElMessage.warning('请填写完整的注册信息')
+    return
+  }
+  
+  if (registerForm.password !== registerForm.confirm) {
+    ElMessage.warning('两次输入的密码不一致')
+    return
+  }
+
+  try {
+    const res = await register({
+      username: registerForm.username,
+      email: registerForm.email,
+      password: registerForm.password,
+    })
+    
+    ElMessage.success(`注册成功！欢迎你，${res.username}`)
+    // 注册成功后切换到登录页
+    activeTab.value = 'login'
+    loginForm.account = registerForm.username
+  } catch (error: any) {
+    ElMessage.error(error.message || '注册失败，请稍后重试')
+  }
 }
 </script>
 

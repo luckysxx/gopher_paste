@@ -6,22 +6,20 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/big"
 	"project/common/cache"
+	"project/common/dberr"
 	"project/services/paste/db"
 	"project/services/paste/model"
 	"project/services/paste/repository"
 	"time"
 
-	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
 // 领域错误定义（协议无关）
 var (
 	ErrShortLinkGeneration = errors.New("无法生成唯一 shortlink")
-	ErrPasteNotFound       = repository.ErrPasteNotFound // 复用 Repository 的错误
 )
 
 type PasteService interface {
@@ -60,19 +58,18 @@ func (s *pasteService) Create(ctx context.Context, req *model.CreatePasteRequest
 			return paste, nil
 		}
 
-		var pqErr *pq.Error
-		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
-			// 唯一键冲突，重试
+		// 检查是否是唯一键冲突，如果是则重试
+		if dberr.IsDuplicateKeyError(err) {
 			s.logger.Warn("shortlink 冲突，重试生成", zap.String("shortLink", cand))
 			continue
 		}
 
-		// 其他数据库错误，返回标准 error
+		// 其他数据库错误，直接返回
 		s.logger.Error("创建 paste 失败",
 			zap.String("shortLink", cand),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("数据库错误: %w", err)
+		return nil, err
 	}
 
 	s.logger.Error("无法生成唯一 shortlink")
@@ -104,17 +101,11 @@ func (s *pasteService) GetByShortLink(ctx context.Context, shortLink string) (*d
 	// 2. 查数据库
 	paste, err := s.repo.GetByShortLink(ctx, shortLink)
 	if err != nil {
-		// Repository 返回的是领域错误
-		if errors.Is(err, repository.ErrPasteNotFound) {
-			// 直接返回，由 Handler 层处理
-			return nil, ErrPasteNotFound
-		}
-		// 其他数据库错误
 		s.logger.Error("查询 paste 失败",
 			zap.String("shortLink", shortLink),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("数据库错误: %w", err)
+		return nil, err
 	}
 
 	// 3. 回写缓存（异步或忽略错误）

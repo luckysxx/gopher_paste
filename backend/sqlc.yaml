@@ -10,7 +10,7 @@ sql:
         out: "services/paste/db"
         sql_package: "database/sql"
 
-  # --- 配置 2: User 服务 (预留) ---
+  # --- 配置 2: User 服务  ---
   - schema: "services/user/db/schema.sql"
     queries: "services/user/db/query.sql"
     engine: "postgresql"

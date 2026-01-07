@@ -4,6 +4,7 @@ import (
 	"errors"
 	"project/common/errs"
 	"project/common/response"
+	"project/common/validator"
 	"project/services/user/model"
 	"project/services/user/service"
 
@@ -31,16 +32,17 @@ func NewUserHandler(svc service.UserService, logger *zap.Logger) *UserHandler {
 func (h *UserHandler) Register(c *gin.Context) {
 	var req model.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Warn("参数绑定失败", zap.Error(err))
-		response.BadRequest(c, "参数错误")
+		// 使用 validator 翻译验证错误为友好提示
+		errMsg := validator.TranslateValidationError(err)
+		h.logger.Warn("参数验证失败", zap.Error(err), zap.String("message", errMsg))
+		response.BadRequest(c, errMsg)
 		return
 	}
 
 	user, err := h.svc.Register(c.Request.Context(), &req)
 	if err != nil {
-		// Handler 层转换错误
 		h.logger.Error("用户注册失败", zap.Error(err))
-		response.Error(c, errs.NewServerErr(err))
+		response.Error(c, errs.ConvertToCustomError(err))
 		return
 	}
 	response.Success(c, user)
@@ -57,20 +59,25 @@ func (h *UserHandler) Register(c *gin.Context) {
 func (h *UserHandler) Login(c *gin.Context) {
 	var req model.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Warn("参数绑定失败", zap.Error(err))
-		response.BadRequest(c, "参数错误")
+		// 使用 validator 翻译验证错误为友好提示
+		errMsg := validator.TranslateValidationError(err)
+		h.logger.Warn("参数验证失败", zap.Error(err), zap.String("message", errMsg))
+		response.BadRequest(c, errMsg)
 		return
 	}
 
 	user, err := h.svc.Login(c.Request.Context(), &req)
 	if err != nil {
-		// Handler 层判断错误类型并转换
+		h.logger.Error("用户登录失败", zap.Error(err))
+
+		// 登录失败需要特殊处理，不暴露具体原因
 		if errors.Is(err, service.ErrInvalidCredentials) {
 			response.Error(c, errs.NewParamErr("用户名或密码错误", err))
 			return
 		}
-		h.logger.Error("用户登录失败", zap.Error(err))
-		response.Error(c, errs.NewServerErr(err))
+
+		// 其他错误统一转换
+		response.Error(c, errs.ConvertToCustomError(err))
 		return
 	}
 	response.Success(c, user)

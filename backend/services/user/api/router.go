@@ -16,8 +16,8 @@ func SetupRouter(r *gin.Engine, userHandler *handler.UserHandler, log *zap.Logge
 	{
 		users := v1.Group("/users")
 		{
-			users.POST("", userHandler.Register)
-			users.GET("/:id", userHandler.Login)
+			users.POST("/register", userHandler.Register)
+			users.POST("/login", userHandler.Login)
 		}
 	}
 }
