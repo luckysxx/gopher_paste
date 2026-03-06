@@ -14,12 +14,12 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api/v1/paste': {
+      '/api/v1/pastes': {
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
 
-      '/api/v1/user': {
+      '/api/v1/users': {
         target: 'http://localhost:8081',
         changeOrigin: true,
       },

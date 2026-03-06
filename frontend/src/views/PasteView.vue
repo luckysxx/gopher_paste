@@ -135,31 +135,6 @@ const highlightedCode = ref('')
 const pasteId = computed(() => (route.params.id as string) || '')
 const codeLines = computed(() => paste.value?.content?.split('\n') ?? [])
 
-const normalizePaste = (res: unknown): Paste => {
-  // request.ts 已解包 data，这里只需映射字段名（后端是 PascalCase）
-  const raw = res as Record<string, unknown>
-
-  const content = (raw.content ?? raw.Content) as string | undefined
-  const shortLink = (raw.short_link ?? raw.ShortLink) as string | undefined
-  const language = (raw.language ?? raw.Language) as string | undefined
-  const createdAt = (raw.created_at ?? raw.CreatedAt) as string | undefined
-  const expiresAt = (raw.expires_at ?? raw.ExpiresAt) as string | undefined
-  const valid = (raw.valid ?? raw.Valid) as boolean | undefined
-
-  if (content && shortLink && language && createdAt) {
-    return {
-      content,
-      short_link: shortLink,
-      language,
-      created_at: createdAt,
-      expires_at: expiresAt,
-      valid,
-    }
-  }
-
-  throw new Error('响应格式不符合预期，请检查后端返回')
-}
-
 const fetchPaste = async (id: string) => {
   if (!id) {
     error.value = '无效的短链或 ID'
@@ -168,24 +143,23 @@ const fetchPaste = async (id: string) => {
   loading.value = true
   error.value = ''
   try {
-    const res = await getPaste(id)
-    const normalized = normalizePaste(res)
-    if (!normalized?.content) {
+    const currentPaste = await getPaste(id)
+    if (!currentPaste.content) {
       throw new Error('后端返回缺少 content 字段')
     }
-    paste.value = normalized
+    paste.value = currentPaste
     // 应用代码高亮
     await nextTick()
-    const lang = normalized.language === 'text' ? 'plaintext' : normalized.language
+    const lang = currentPaste.language === 'text' ? 'plaintext' : currentPaste.language
     try {
-      const result = hljs.highlight(normalized.content, { language: lang, ignoreIllegals: true })
+      const result = hljs.highlight(currentPaste.content, { language: lang, ignoreIllegals: true })
       highlightedCode.value = result.value
-    } catch (e) {
+    } catch {
       // 语言不支持时回退到自动检测
-      const result = hljs.highlightAuto(normalized.content)
+      const result = hljs.highlightAuto(currentPaste.content)
       highlightedCode.value = result.value
     }
-  } catch (err) {
+  } catch {
     paste.value = null
     error.value = '代码贴不存在或已被删除'
   } finally {
@@ -217,7 +191,7 @@ const copyContent = async () => {
   try {
     await navigator.clipboard.writeText(paste.value.content)
     ElMessage.success('复制成功')
-  } catch (e) {
+  } catch {
     ElMessage.error('复制失败')
   }
 }
@@ -228,7 +202,7 @@ const copyShortLink = async () => {
   try {
     await navigator.clipboard.writeText(link)
     ElMessage.success('短链已复制')
-  } catch (e) {
+  } catch {
     ElMessage.error('复制失败')
   }
 }

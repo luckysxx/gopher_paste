@@ -1,6 +1,6 @@
 -- db/schema.sql
 
-CREATE TABLE pastes (
+CREATE TABLE IF NOT EXISTS pastes (
     short_link  VARCHAR(10) PRIMARY KEY,
     content     TEXT NOT NULL,
     language    VARCHAR(20) NOT NULL DEFAULT 'text',

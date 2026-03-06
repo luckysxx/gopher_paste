@@ -20,14 +20,19 @@ docker-compose -f docker-compose-infra.yaml up -d postgres redis
 
 ### 运行步骤
 
-1. **设置环境变量**（可选）
+1. **初始化数据库表（首次必做）**
+```bash
+make db-init
+```
+
+2. **设置环境变量**（可选）
 ```bash
 cd backend
 cp .env.example .env
 # 编辑 .env 文件，修改配置
 ```
 
-2. **运行服务**
+3. **运行服务**
 ```bash
 # Paste 服务
 cd backend/services/paste
@@ -38,7 +43,7 @@ cd backend/services/user
 go run main.go
 ```
 
-3. **使用默认配置**
+4. **使用默认配置**
 如果不设置环境变量，会使用 config.go 中的默认值：
 - DB_SOURCE: `postgres://postgres:123456@postgres:5432/gopher_paste?sslmode=disable`
 - REDIS_ADDR: `gopher_redis:6379`
@@ -59,17 +64,22 @@ go run main.go
 docker-compose -f docker-compose-infra.yaml up -d
 ```
 
-2. **启动应用服务**
+2. **初始化数据库表（首次必做）**
+```bash
+make db-init
+```
+
+3. **启动应用服务**
 ```bash
 docker-compose up -d
 ```
 
-3. **访问服务**
+4. **访问服务**
 - Paste 服务: http://localhost:8080
 - User 服务: http://localhost:8081
 - 前端: http://localhost:80
 
-4. **查看日志**
+5. **查看日志**
 ```bash
 docker-compose logs -f paste-service
 docker-compose logs -f user-service

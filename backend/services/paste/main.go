@@ -21,7 +21,7 @@ import (
 // @version         1.0
 // @description     一个类似于 Pastebin 的代码分享服务
 // @host            localhost:8080
-// @BasePath        /
+// @BasePath        /api/v1
 func main() {
 	// 初始化基础设施
 	log := logger.NewLogger("paste")

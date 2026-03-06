@@ -28,7 +28,7 @@ func NewUserHandler(svc service.UserService, logger *zap.Logger) *UserHandler {
 // @Produce      json
 // @Param        request body model.RegisterRequest true "注册信息"
 // @Success      200  {object}  model.RegisterResponse
-// @Router       /register [post]
+// @Router       /users/register [post]
 func (h *UserHandler) Register(c *gin.Context) {
 	var req model.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -55,7 +55,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 // @Produce      json
 // @Param        request body model.LoginRequest true "登录信息"
 // @Success      200  {object}  model.LoginResponse
-// @Router       /login [post]
+// @Router       /users/login [post]
 func (h *UserHandler) Login(c *gin.Context) {
 	var req model.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

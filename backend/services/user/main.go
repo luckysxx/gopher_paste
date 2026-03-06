@@ -21,7 +21,7 @@ import (
 // @version         1.0
 // @description     用户中心服务，提供注册、登录功能
 // @host            localhost:8081
-// @BasePath        /
+// @BasePath        /api/v1
 func main() {
 	// 初始化基础设施
 	log := logger.NewLogger("user")

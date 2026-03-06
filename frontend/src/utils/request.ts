@@ -34,7 +34,7 @@ interface ApiResponse<T = unknown> {
 
 // 3. 响应拦截器 (Response Interceptor)
 service.interceptors.response.use(
-  (response): any => {
+  (response) => {
     // 2xx 范围内的状态码都会触发这里
     const res = response.data as ApiResponse
 

@@ -15,40 +15,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/login": {
-            "post": {
-                "description": "用户登录接口",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "User"
-                ],
-                "summary": "用户登录",
-                "parameters": [
-                    {
-                        "description": "登录信息",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.LoginRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/model.LoginResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/pastes": {
             "post": {
                 "consumes": [
@@ -110,7 +76,41 @@ const docTemplate = `{
                 }
             }
         },
-        "/register": {
+        "/users/login": {
+            "post": {
+                "description": "用户登录接口",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "用户登录",
+                "parameters": [
+                    {
+                        "description": "登录信息",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.LoginResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/register": {
             "post": {
                 "description": "用户注册接口",
                 "consumes": [
@@ -150,17 +150,13 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "content",
-                "language",
-                "short_link"
+                "language"
             ],
             "properties": {
                 "content": {
                     "type": "string"
                 },
                 "language": {
-                    "type": "string"
-                },
-                "short_link": {
                     "type": "string"
                 }
             }
@@ -176,6 +172,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "username": {
+                    "description": "登录时不需要太严格，只要求必填即可",
                     "type": "string"
                 }
             }
@@ -217,18 +214,25 @@ const docTemplate = `{
         "model.RegisterRequest": {
             "type": "object",
             "required": [
+                "email",
                 "password",
                 "username"
             ],
             "properties": {
                 "email": {
+                    "description": "Email: 邮箱",
                     "type": "string"
                 },
                 "password": {
-                    "type": "string"
+                    "description": "Password: 密码",
+                    "type": "string",
+                    "minLength": 8
                 },
                 "username": {
-                    "type": "string"
+                    "description": "Username: 用户名\nrequired: 必填字段\nmin=3: 最少3个字符\nmax=20: 最多20个字符\nalphanum: 只能包含字母和数字（不能有特殊字符、空格）",
+                    "type": "string",
+                    "maxLength": 20,
+                    "minLength": 3
                 }
             }
         },
@@ -253,7 +257,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:8080",
-	BasePath:         "/",
+	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "GopherPaste API",
 	Description:      "一个类似于 Pastebin 的代码分享服务",

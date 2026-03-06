@@ -96,7 +96,6 @@ const shortLink = ref('')
 const form = reactive({
   content: '',
   language: 'text',
-  short_link: '',
 })
 
 const goToPaste = () => {
@@ -120,9 +119,7 @@ const onSubmit = async () => {
 
     ElMessage.success('创建成功！')
 
-    // request.ts 已解包 data，后端返回 PascalCase
-    const raw = res as unknown as Record<string, unknown>
-    const pasteId = (raw.short_link ?? raw.ShortLink) as string
+    const pasteId = res.short_link
 
     if (pasteId) {
       router.push(`/paste/${pasteId}`)

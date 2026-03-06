@@ -125,6 +125,11 @@ const informPreview = () => {
   ElMessage.info('当前为界面示例，尚未接入实际认证逻辑')
 }
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) return error.message
+  return fallback
+}
+
 const handleLogin = async () => {
   if (!loginForm.account || !loginForm.password) {
     ElMessage.warning('请填写完整的登录信息')
@@ -147,8 +152,8 @@ const handleLogin = async () => {
     
     ElMessage.success('登录成功！')
     router.push('/')
-  } catch (error: any) {
-    ElMessage.error(error.message || '登录失败，请检查用户名和密码')
+  } catch (error: unknown) {
+    ElMessage.error(getErrorMessage(error, '登录失败，请检查用户名和密码'))
   }
 }
 
@@ -174,8 +179,8 @@ const handleRegister = async () => {
     // 注册成功后切换到登录页
     activeTab.value = 'login'
     loginForm.account = registerForm.username
-  } catch (error: any) {
-    ElMessage.error(error.message || '注册失败，请稍后重试')
+  } catch (error: unknown) {
+    ElMessage.error(getErrorMessage(error, '注册失败，请稍后重试'))
   }
 }
 </script>
