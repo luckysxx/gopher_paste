@@ -1,4 +1,5 @@
 import axios from 'axios'
+import type { AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 
 // 1. 创建 axios 实例
@@ -41,7 +42,7 @@ service.interceptors.response.use(
     // 后端统一包装格式：{ code, msg, data }
     // code 为 200 表示成功，直接返回 data
     if (res.code === 200) {
-      return res.data
+      return res.data as unknown as AxiosResponse
     }
 
     // code 不为 200，说明业务逻辑错误
