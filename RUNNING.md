@@ -178,6 +178,26 @@ kubectl port-forward svc/paste-service 8080:8080 -n gopher-paste
 
 ## 常见问题
 
+### Q: 前端提示“请求失败”，但后端接口是通的
+A: 先检查前端代理是否包含以下路径：
+
+- `/api/v1/users` -> user service (8081)
+- `/api/v1/pastes` -> paste service (8080)
+- `/api/v1/me` -> paste service (8080)
+
+开发环境见 `frontend/vite.config.ts`，容器环境见 `frontend/nginx.conf`。
+
+### Q: 如何更新 Swagger 文档
+A: 在项目根目录执行：
+
+```bash
+make swagger-paste
+```
+
+生成文件位于：`backend/services/paste/docs/`。
+
+说明：当前 Swagger 只扫描 paste 服务目录，避免混入 user service 路由。
+
 ### Q: 本地开发时连不上数据库
 A: 检查主机名，改为 `localhost`：
 ```bash

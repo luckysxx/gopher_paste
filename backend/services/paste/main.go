@@ -4,13 +4,12 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 
-	"project/common/cache"
+	"project/common/auth"
 	"project/common/config"
 	"project/common/database"
 	"project/common/logger"
 
 	"project/services/paste/api"
-	"project/services/paste/db"
 	_ "project/services/paste/docs"
 	"project/services/paste/handler"
 	"project/services/paste/repository"
@@ -29,17 +28,15 @@ func main() {
 
 	cfg := config.LoadConfig()
 	conn := database.InitPostgres(cfg.Database, log)
-	queries := db.New(conn)
-	rdb := cache.InitRedis(cfg.Redis, log)
-	cacheInstance := cache.NewCache(rdb)
+	jwtManager := auth.NewJWTManager(cfg.JWT.Secret)
 
 	// 依赖注入
-	pasteRepo := repository.NewPasteRepository(queries)
-	pasteSvc := service.NewPasteService(pasteRepo, cacheInstance, log)
+	pasteRepo := repository.NewPasteRepository(conn)
+	pasteSvc := service.NewPasteService(pasteRepo, log)
 	pasteHandler := handler.NewPasteHandler(pasteSvc, log)
 
 	// 路由
 	r := gin.New()
-	api.SetupRouter(r, pasteHandler, log)
+	api.SetupRouter(r, pasteHandler, jwtManager, log)
 	r.Run(":" + cfg.Server.Port)
 }

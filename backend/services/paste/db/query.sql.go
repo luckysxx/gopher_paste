@@ -13,53 +13,149 @@ import (
 const createPaste = `-- name: CreatePaste :one
 
 INSERT INTO pastes (
-  short_link, content, language, expires_at
+  owner_id, title, short_link, content, language, visibility
 ) VALUES (
-  $1, $2, $3, $4
+  $1, $2, $3, $4, $5, $6
 )
-RETURNING short_link, content, language, expires_at, created_at
+RETURNING id, owner_id, title, short_link, content, language, visibility, created_at, updated_at
 `
 
 type CreatePasteParams struct {
-	ShortLink string
-	Content   string
-	Language  string
-	ExpiresAt sql.NullTime
+	OwnerID    int64
+	Title      string
+	ShortLink  sql.NullString
+	Content    string
+	Language   string
+	Visibility string
 }
 
 // db/query.sql
 func (q *Queries) CreatePaste(ctx context.Context, arg CreatePasteParams) (Paste, error) {
 	row := q.db.QueryRowContext(ctx, createPaste,
+		arg.OwnerID,
+		arg.Title,
 		arg.ShortLink,
 		arg.Content,
 		arg.Language,
-		arg.ExpiresAt,
+		arg.Visibility,
 	)
 	var i Paste
 	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Title,
 		&i.ShortLink,
 		&i.Content,
 		&i.Language,
-		&i.ExpiresAt,
+		&i.Visibility,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getPaste = `-- name: GetPaste :one
-SELECT short_link, content, language, expires_at, created_at FROM pastes
-WHERE short_link = $1 LIMIT 1
+SELECT id, owner_id, title, short_link, content, language, visibility, created_at, updated_at FROM pastes
+WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetPaste(ctx context.Context, shortLink string) (Paste, error) {
-	row := q.db.QueryRowContext(ctx, getPaste, shortLink)
+func (q *Queries) GetPaste(ctx context.Context, id int64) (Paste, error) {
+	row := q.db.QueryRowContext(ctx, getPaste, id)
 	var i Paste
 	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Title,
 		&i.ShortLink,
 		&i.Content,
 		&i.Language,
-		&i.ExpiresAt,
+		&i.Visibility,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listMyPastes = `-- name: ListMyPastes :many
+SELECT id, owner_id, title, short_link, content, language, visibility, created_at, updated_at FROM pastes
+WHERE owner_id = $1
+ORDER BY updated_at DESC
+`
+
+func (q *Queries) ListMyPastes(ctx context.Context, ownerID int64) ([]Paste, error) {
+	rows, err := q.db.QueryContext(ctx, listMyPastes, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Paste
+	for rows.Next() {
+		var i Paste
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Title,
+			&i.ShortLink,
+			&i.Content,
+			&i.Language,
+			&i.Visibility,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updatePaste = `-- name: UpdatePaste :one
+UPDATE pastes
+SET
+  title = $2,
+  content = $3,
+  language = $4,
+  visibility = $5,
+  updated_at = NOW()
+WHERE id = $1 AND owner_id = $6
+RETURNING id, owner_id, title, short_link, content, language, visibility, created_at, updated_at
+`
+
+type UpdatePasteParams struct {
+	ID         int64
+	Title      string
+	Content    string
+	Language   string
+	Visibility string
+	OwnerID    int64
+}
+
+func (q *Queries) UpdatePaste(ctx context.Context, arg UpdatePasteParams) (Paste, error) {
+	row := q.db.QueryRowContext(ctx, updatePaste,
+		arg.ID,
+		arg.Title,
+		arg.Content,
+		arg.Language,
+		arg.Visibility,
+		arg.OwnerID,
+	)
+	var i Paste
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Title,
+		&i.ShortLink,
+		&i.Content,
+		&i.Language,
+		&i.Visibility,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

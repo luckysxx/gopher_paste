@@ -99,13 +99,16 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound, CircleCheck, Key, Message, Right } from '@element-plus/icons-vue'
 import { login, register } from '@/api/user'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const route = useRoute()
+const authStore = useAuthStore()
 const activeTab = ref('login')
 
 const loginForm = reactive({
@@ -141,17 +144,16 @@ const handleLogin = async () => {
       username: loginForm.account,
       password: loginForm.password,
     })
-    
-    // 保存 token 到 localStorage
-    localStorage.setItem('token', res.token)
-    localStorage.setItem('user', JSON.stringify({
+
+    authStore.setAuth(res.token, {
       id: res.user_id,
       username: res.username,
       email: res.email,
-    }))
-    
+    })
+
     ElMessage.success('登录成功！')
-    router.push('/')
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    router.push(redirect)
   } catch (error: unknown) {
     ElMessage.error(getErrorMessage(error, '登录失败，请检查用户名和密码'))
   }
@@ -183,6 +185,13 @@ const handleRegister = async () => {
     ElMessage.error(getErrorMessage(error, '注册失败，请稍后重试'))
   }
 }
+
+onMounted(() => {
+  authStore.initFromStorage()
+  if (authStore.isAuthenticated) {
+    router.replace('/')
+  }
+})
 </script>
 
 <style scoped lang="scss">

@@ -6,31 +6,14 @@ definitions:
         type: string
       language:
         type: string
+      title:
+        type: string
+      visibility:
+        type: string
     required:
     - content
     - language
-    type: object
-  model.LoginRequest:
-    properties:
-      password:
-        type: string
-      username:
-        description: 登录时不需要太严格，只要求必填即可
-        type: string
-    required:
-    - password
-    - username
-    type: object
-  model.LoginResponse:
-    properties:
-      email:
-        type: string
-      token:
-        type: string
-      user_id:
-        type: integer
-      username:
-        type: string
+    - title
     type: object
   model.PasteResponse:
     properties:
@@ -38,43 +21,35 @@ definitions:
         type: string
       created_at:
         type: string
+      id:
+        type: integer
       language:
         type: string
+      owner_id:
+        type: integer
       short_link:
         type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      visibility:
+        type: string
     type: object
-  model.RegisterRequest:
+  model.UpdatePasteRequest:
     properties:
-      email:
-        description: 'Email: 邮箱'
+      content:
         type: string
-      password:
-        description: 'Password: 密码'
-        minLength: 8
+      language:
         type: string
-      username:
-        description: |-
-          Username: 用户名
-          required: 必填字段
-          min=3: 最少3个字符
-          max=20: 最多20个字符
-          alphanum: 只能包含字母和数字（不能有特殊字符、空格）
-        maxLength: 20
-        minLength: 3
+      title:
+        type: string
+      visibility:
         type: string
     required:
-    - email
-    - password
-    - username
-    type: object
-  model.RegisterResponse:
-    properties:
-      email:
-        type: string
-      user_id:
-        type: integer
-      username:
-        type: string
+    - content
+    - language
+    - title
     type: object
 host: localhost:8080
 info:
@@ -83,6 +58,20 @@ info:
   title: GopherPaste API
   version: "1.0"
 paths:
+  /me/pastes:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.PasteResponse'
+            type: array
+      summary: 获取我的代码片段列表
+      tags:
+      - pastes
   /pastes:
     post:
       consumes:
@@ -107,7 +96,7 @@ paths:
   /pastes/{id}:
     get:
       parameters:
-      - description: 短链接ID
+      - description: 片段ID
         in: path
         name: id
         required: true
@@ -122,48 +111,29 @@ paths:
       summary: 获取代码片段
       tags:
       - pastes
-  /users/login:
-    post:
+    put:
       consumes:
       - application/json
-      description: 用户登录接口
       parameters:
-      - description: 登录信息
+      - description: 片段ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 请求参数
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.LoginRequest'
+          $ref: '#/definitions/model.UpdatePasteRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/model.LoginResponse'
-      summary: 用户登录
+            $ref: '#/definitions/model.PasteResponse'
+      summary: 更新代码片段
       tags:
-      - User
-  /users/register:
-    post:
-      consumes:
-      - application/json
-      description: 用户注册接口
-      parameters:
-      - description: 注册信息
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/model.RegisterRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/model.RegisterResponse'
-      summary: 用户注册
-      tags:
-      - User
+      - pastes
 swagger: "2.0"

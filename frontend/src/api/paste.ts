@@ -1,16 +1,21 @@
 import request from '@/utils/request'
 
-export interface Paste {
-  short_link: string
+export interface Snippet {
+  id: string | number
+  title: string
   content: string
   language: string
   created_at: string
-  expires_at?: string
-  valid?: boolean
-  id?: string | number
+  updated_at: string
+  visibility?: 'private' | 'public'
+  owner_id?: number
 }
 
-type RawPaste = Partial<{
+type RawSnippet = Partial<{
+  id: string | number
+  ID: string | number
+  title: string
+  Title: string
   short_link: string
   ShortLink: string
   content: string
@@ -19,43 +24,65 @@ type RawPaste = Partial<{
   Language: string
   created_at: string
   CreatedAt: string
-  expires_at: string
-  ExpiresAt: string
-  valid: boolean
-  Valid: boolean
-  id: string | number
-  ID: string | number
+  updated_at: string
+  UpdatedAt: string
+  visibility: 'private' | 'public'
+  Visibility: 'private' | 'public'
+  owner_id: number
+  OwnerID: number
 }>
 
-const normalizePaste = (raw: RawPaste): Paste => {
-  const shortLink = raw.short_link ?? raw.ShortLink
+const normalizeSnippet = (raw: RawSnippet): Snippet => {
+  const id = raw.id ?? raw.ID
+  const title = raw.title ?? raw.Title ?? raw.short_link ?? raw.ShortLink
   const content = raw.content ?? raw.Content
   const language = raw.language ?? raw.Language
   const createdAt = raw.created_at ?? raw.CreatedAt
+  const updatedAt = raw.updated_at ?? raw.UpdatedAt ?? createdAt
 
-  if (!shortLink || !content || !language || !createdAt) {
-    throw new Error('Paste 响应字段缺失')
+  if (id === undefined || !title || !content || !language || !createdAt || !updatedAt) {
+    throw new Error('Snippet 响应字段缺失')
   }
 
   return {
-    short_link: shortLink,
+    id,
+    title,
     content,
     language,
     created_at: createdAt,
-    expires_at: raw.expires_at ?? raw.ExpiresAt,
-    valid: raw.valid ?? raw.Valid,
-    id: raw.id ?? raw.ID,
+    updated_at: updatedAt,
+    visibility: raw.visibility ?? raw.Visibility,
+    owner_id: raw.owner_id ?? raw.OwnerID,
   }
 }
 
-// 1. 获取帖子详情的接口
-// 对应后端: GET /api/v1/pastes/:id
-export const getPaste = (id: string) => {
-  return request.get<unknown, RawPaste>(`/api/v1/pastes/${id}`).then(normalizePaste)
+export interface SaveSnippetRequest {
+  title: string
+  content: string
+  language: string
+  visibility?: 'private' | 'public'
 }
 
-// 2. 创建帖子的接口
+// 获取我的代码片段
+// 对应后端: GET /api/v1/me/pastes
+export const listMySnippets = () => {
+  return request.get<unknown, RawSnippet[]>('/api/v1/me/pastes').then((list) => list.map(normalizeSnippet))
+}
+
+// 获取代码片段详情
+// 对应后端: GET /api/v1/pastes/:id
+export const getSnippet = (id: string) => {
+  return request.get<unknown, RawSnippet>(`/api/v1/pastes/${id}`).then(normalizeSnippet)
+}
+
+// 创建代码片段
 // 对应后端: POST /api/v1/pastes
-export const createPaste = (data: { content: string; language: string }) => {
-  return request.post<unknown, RawPaste>('/api/v1/pastes', data).then(normalizePaste)
+export const createSnippet = (data: SaveSnippetRequest) => {
+  return request.post<unknown, RawSnippet>('/api/v1/pastes', data).then(normalizeSnippet)
+}
+
+// 更新代码片段
+// 对应后端: PUT /api/v1/pastes/:id
+export const updateSnippet = (id: string, data: SaveSnippetRequest) => {
+  return request.put<unknown, RawSnippet>(`/api/v1/pastes/${id}`, data).then(normalizeSnippet)
 }

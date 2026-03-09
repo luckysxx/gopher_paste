@@ -10,9 +10,13 @@ import (
 )
 
 type Paste struct {
-	ShortLink string
-	Content   string
-	Language  string
-	ExpiresAt sql.NullTime
-	CreatedAt time.Time
+	ID         int64
+	OwnerID    int64
+	Title      string
+	ShortLink  sql.NullString
+	Content    string
+	Language   string
+	Visibility string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }

@@ -2,18 +2,18 @@
   <div class="paste-page">
     <div class="page-header">
       <div>
-        <p class="eyebrow">短链详情</p>
-        <h1>代码贴预览</h1>
-        <p class="lede">通过 /paste/:id 直接打开短链，接口接入后可立即使用。</p>
+        <p class="eyebrow">Snippet Detail</p>
+        <h1>{{ snippet?.title || '代码片段详情' }}</h1>
+        <p class="lede">查看代码片段内容、语言与更新时间。</p>
       </div>
       <div class="header-actions">
-        <el-button size="small" plain @click="copyShortLink" :disabled="!pasteId">
+        <el-button v-if="canEdit" size="small" plain @click="goToEdit">
           <el-icon>
-            <Link />
+            <Edit />
           </el-icon>
-          <span>复制短链</span>
+          <span>编辑片段</span>
         </el-button>
-        <el-button size="small" type="primary" plain @click="copyContent" :disabled="!paste?.content">
+        <el-button size="small" type="primary" plain @click="copyContent" :disabled="!snippet?.content">
           <el-icon>
             <CopyDocument />
           </el-icon>
@@ -32,26 +32,16 @@
       </template>
     </el-result>
 
-    <el-card v-else-if="paste" class="viewer-card" shadow="hover">
+    <el-card v-else-if="snippet" class="viewer-card" shadow="hover">
       <div class="card-header">
         <div class="title-area">
-          <div class="id-chip">{{ paste.short_link || pasteId }}</div>
-          <el-tag size="small" effect="plain">{{ paste.language || 'text' }}</el-tag>
+          <div class="id-chip">#{{ snippet.id }}</div>
+          <el-tag size="small" effect="plain">{{ snippet.language || 'text' }}</el-tag>
+          <el-tag size="small" effect="light" :type="snippet.visibility === 'public' ? 'success' : 'info'">
+            {{ snippet.visibility === 'public' ? '公开' : '私有' }}
+          </el-tag>
         </div>
-        <div class="card-actions">
-          <el-button size="small" plain @click="copyShortLink" :disabled="!paste.short_link">
-            <el-icon>
-              <Link />
-            </el-icon>
-            <span>复制短链</span>
-          </el-button>
-          <el-button size="small" type="primary" plain @click="copyContent">
-            <el-icon>
-              <CopyDocument />
-            </el-icon>
-            <span>复制内容</span>
-          </el-button>
-        </div>
+        <div class="meta">更新于 {{ formatDate(snippet.updated_at) }}</div>
       </div>
 
       <div class="code-shell">
@@ -59,7 +49,7 @@
           <span class="dot red"></span>
           <span class="dot yellow"></span>
           <span class="dot green"></span>
-          <span class="filename">snippet.{{ paste.language || 'txt' }}</span>
+          <span class="filename">{{ snippet.title }}.{{ snippet.language || 'txt' }}</span>
         </div>
         <div class="code-body">
           <div class="gutter">
@@ -70,7 +60,7 @@
       </div>
 
       <div class="footer-actions">
-        <el-tag size="small" effect="light">短链：{{ paste.short_link || pasteId }}</el-tag>
+        <el-tag size="small" effect="light">创建于 {{ formatDate(snippet.created_at) }}</el-tag>
         <div class="spacer" />
         <el-button size="small" @click="copyContent">
           <el-icon>
@@ -86,11 +76,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
-import { getPaste, type Paste } from '@/api/paste'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { getSnippet, type Snippet } from '@/api/paste'
 import { ElMessage } from 'element-plus'
-import { CopyDocument, Link } from '@element-plus/icons-vue'
+import { CopyDocument, Edit } from '@element-plus/icons-vue'
 import hljs from 'highlight.js/lib/core'
 import javascript from 'highlight.js/lib/languages/javascript'
 import typescript from 'highlight.js/lib/languages/typescript'
@@ -107,6 +97,7 @@ import xml from 'highlight.js/lib/languages/xml'
 import css from 'highlight.js/lib/languages/css'
 import bash from 'highlight.js/lib/languages/bash'
 import 'highlight.js/styles/tokyo-night-dark.css'
+import { useAuthStore } from '@/stores/auth'
 
 // 注册语言
 hljs.registerLanguage('javascript', javascript)
@@ -127,27 +118,35 @@ hljs.registerLanguage('shell', bash)
 hljs.registerLanguage('bash', bash)
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 const loading = ref(false)
 const error = ref('')
-const paste = ref<Paste | null>(null)
+const snippet = ref<Snippet | null>(null)
 const highlightedCode = ref('')
 
-const pasteId = computed(() => (route.params.id as string) || '')
-const codeLines = computed(() => paste.value?.content?.split('\n') ?? [])
+const snippetId = computed(() => (route.params.id as string) || '')
+const codeLines = computed(() => snippet.value?.content?.split('\n') ?? [])
+const canEdit = computed(() => {
+  if (!snippet.value?.owner_id || !authStore.user?.id) {
+    return true
+  }
+  return snippet.value.owner_id === authStore.user.id
+})
 
 const fetchPaste = async (id: string) => {
   if (!id) {
-    error.value = '无效的短链或 ID'
+    error.value = '无效的代码片段 ID'
     return
   }
   loading.value = true
   error.value = ''
   try {
-    const currentPaste = await getPaste(id)
+    const currentPaste = await getSnippet(id)
     if (!currentPaste.content) {
       throw new Error('后端返回缺少 content 字段')
     }
-    paste.value = currentPaste
+    snippet.value = currentPaste
     // 应用代码高亮
     await nextTick()
     const lang = currentPaste.language === 'text' ? 'plaintext' : currentPaste.language
@@ -160,20 +159,20 @@ const fetchPaste = async (id: string) => {
       highlightedCode.value = result.value
     }
   } catch {
-    paste.value = null
-    error.value = '代码贴不存在或已被删除'
+    snippet.value = null
+    error.value = '代码片段不存在或你无权查看'
   } finally {
     loading.value = false
   }
 }
 
 const retry = () => {
-  fetchPaste(pasteId.value)
+  fetchPaste(snippetId.value)
 }
 
 onMounted(() => {
-  if (pasteId.value) {
-    fetchPaste(pasteId.value)
+  if (snippetId.value) {
+    fetchPaste(snippetId.value)
   }
 })
 
@@ -187,24 +186,26 @@ watch(
 )
 
 const copyContent = async () => {
-  if (!paste.value?.content) return
+  if (!snippet.value?.content) return
   try {
-    await navigator.clipboard.writeText(paste.value.content)
+    await navigator.clipboard.writeText(snippet.value.content)
     ElMessage.success('复制成功')
   } catch {
     ElMessage.error('复制失败')
   }
 }
 
-const copyShortLink = async () => {
-  const link = paste.value?.short_link || pasteId.value
-  if (!link) return
-  try {
-    await navigator.clipboard.writeText(link)
-    ElMessage.success('短链已复制')
-  } catch {
-    ElMessage.error('复制失败')
+const goToEdit = () => {
+  if (!snippetId.value) return
+  router.push(`/snippets/${snippetId.value}/edit`)
+}
+
+const formatDate = (value: string) => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
   }
+  return date.toLocaleString()
 }
 </script>
 
@@ -287,10 +288,9 @@ const copyShortLink = async () => {
   letter-spacing: 0.2px;
 }
 
-.card-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.meta {
+  color: #909399;
+  font-size: 13px;
 }
 
 .code-shell {

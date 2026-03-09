@@ -3,16 +3,11 @@ package service
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
-	"encoding/json"
 	"errors"
 	"math/big"
-	"project/common/cache"
 	"project/common/dberr"
-	"project/services/paste/db"
 	"project/services/paste/model"
 	"project/services/paste/repository"
-	"time"
 
 	"go.uber.org/zap"
 )
@@ -20,24 +15,26 @@ import (
 // 领域错误定义（协议无关）
 var (
 	ErrShortLinkGeneration = errors.New("无法生成唯一 shortlink")
+	ErrForbidden           = errors.New("无权限操作该代码片段")
 )
 
 type PasteService interface {
-	Create(ctx context.Context, req *model.CreatePasteRequest) (*db.Paste, error)
-	GetByShortLink(ctx context.Context, shortLink string) (*db.Paste, error)
+	Create(ctx context.Context, userID int64, req *model.CreatePasteRequest) (*model.PasteResponse, error)
+	GetByID(ctx context.Context, id int64) (*model.PasteResponse, error)
+	ListMine(ctx context.Context, userID int64) ([]model.PasteResponse, error)
+	Update(ctx context.Context, userID, id int64, req *model.UpdatePasteRequest) (*model.PasteResponse, error)
 }
 
 type pasteService struct {
 	repo   repository.PasteRepository
-	cache  cache.Cache
 	logger *zap.Logger
 }
 
-func NewPasteService(repo repository.PasteRepository, cache cache.Cache, logger *zap.Logger) PasteService {
-	return &pasteService{repo: repo, cache: cache, logger: logger}
+func NewPasteService(repo repository.PasteRepository, logger *zap.Logger) PasteService {
+	return &pasteService{repo: repo, logger: logger}
 }
 
-func (s *pasteService) Create(ctx context.Context, req *model.CreatePasteRequest) (*db.Paste, error) {
+func (s *pasteService) Create(ctx context.Context, userID int64, req *model.CreatePasteRequest) (*model.PasteResponse, error) {
 	const maxAttempts = 5
 	for i := 0; i < maxAttempts; i++ {
 		cand, err := generateShortLink(8)
@@ -46,14 +43,7 @@ func (s *pasteService) Create(ctx context.Context, req *model.CreatePasteRequest
 			return nil, err
 		}
 
-		params := &db.CreatePasteParams{
-			ShortLink: cand,
-			Content:   req.Content,
-			Language:  req.Language,
-			ExpiresAt: sql.NullTime{Valid: false},
-		}
-
-		paste, err := s.repo.Create(ctx, params)
+		paste, err := s.repo.Create(ctx, userID, req, cand)
 		if err == nil {
 			return paste, nil
 		}
@@ -89,47 +79,52 @@ func generateShortLink(n int) (string, error) {
 	return string(b), nil
 }
 
-func (s *pasteService) GetByShortLink(ctx context.Context, shortLink string) (*db.Paste, error) {
-	cacheKey := "paste:" + shortLink
-
-	// 1. 查缓存
-	if cached, err := s.getFromCache(ctx, cacheKey); err == nil {
-		s.logger.Info("Cache hit", zap.String("key", shortLink))
-		return cached, nil
-	}
-
-	// 2. 查数据库
-	paste, err := s.repo.GetByShortLink(ctx, shortLink)
+func (s *pasteService) GetByID(ctx context.Context, id int64) (*model.PasteResponse, error) {
+	paste, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		s.logger.Error("查询 paste 失败",
-			zap.String("shortLink", shortLink),
+			zap.Int64("id", id),
 			zap.Error(err),
 		)
 		return nil, err
 	}
-
-	// 3. 回写缓存（异步或忽略错误）
-	s.setCache(ctx, cacheKey, paste)
-	s.logger.Info("Cache miss - loaded from DB", zap.String("key", shortLink))
-
 	return paste, nil
 }
 
-func (s *pasteService) getFromCache(ctx context.Context, key string) (*db.Paste, error) {
-	val, err := s.cache.Get(ctx, key)
+func (s *pasteService) ListMine(ctx context.Context, userID int64) ([]model.PasteResponse, error) {
+	list, err := s.repo.ListByOwner(ctx, userID)
+	if err != nil {
+		s.logger.Error("查询用户 paste 列表失败",
+			zap.Int64("userID", userID),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	return list, nil
+}
+
+func (s *pasteService) Update(ctx context.Context, userID, id int64, req *model.UpdatePasteRequest) (*model.PasteResponse, error) {
+	current, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	var paste db.Paste
-	if err := json.Unmarshal([]byte(val), &paste); err != nil {
+
+	if current.OwnerID != userID {
+		return nil, ErrForbidden
+	}
+
+	paste, err := s.repo.Update(ctx, userID, id, req)
+	if err != nil {
+		s.logger.Error("更新 paste 失败",
+			zap.Int64("id", id),
+			zap.Int64("userID", userID),
+			zap.Error(err),
+		)
+		if dberr.IsNotFoundError(err) {
+			return nil, ErrForbidden
+		}
 		return nil, err
 	}
-	return &paste, nil
-}
 
-func (s *pasteService) setCache(ctx context.Context, key string, paste *db.Paste) {
-	data, _ := json.Marshal(paste)
-	if err := s.cache.Set(ctx, key, string(data), time.Hour); err != nil {
-		s.logger.Warn("Failed to set cache", zap.Error(err))
-	}
+	return paste, nil
 }

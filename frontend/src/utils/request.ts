@@ -1,6 +1,7 @@
 import axios from 'axios'
 import type { AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 
 // 1. 创建 axios 实例
 const service = axios.create({
@@ -14,11 +15,11 @@ const service = axios.create({
 // 2. 请求拦截器 (Request Interceptor)
 service.interceptors.request.use(
   (config) => {
-    // 以后我们要在这里给 Header 加 Token
-    // const token = localStorage.getItem('token')
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`
-    // }
+    const authStore = useAuthStore()
+    if (authStore.token) {
+      config.headers = config.headers || {}
+      config.headers.Authorization = `Bearer ${authStore.token}`
+    }
     return config
   },
   (error) => {
@@ -52,6 +53,14 @@ service.interceptors.response.use(
   (error) => {
     // 超出 2xx 范围的状态码都会触发这里（网络错误、404、500等）
     console.error('请求出错:', error)
+
+    if (error.response?.status === 401) {
+      const authStore = useAuthStore()
+      authStore.logout()
+      if (window.location.pathname !== '/auth') {
+        window.location.href = '/auth'
+      }
+    }
 
     // 统一弹出错误提示
     const msg = error.response?.data?.msg || error.message || '网络请求失败，请稍后重试'

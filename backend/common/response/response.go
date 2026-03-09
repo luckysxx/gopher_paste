@@ -98,3 +98,12 @@ func Unauthorized(c *gin.Context, msg string) {
 		"data": nil,
 	})
 }
+
+// Forbidden 禁止访问响应
+func Forbidden(c *gin.Context, msg string) {
+	c.JSON(http.StatusForbidden, gin.H{
+		"code": errs.Forbidden,
+		"msg":  msg,
+		"data": nil,
+	})
+}

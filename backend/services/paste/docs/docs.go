@@ -15,6 +15,28 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/me/pastes": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pastes"
+                ],
+                "summary": "获取我的代码片段列表",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.PasteResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/pastes": {
             "post": {
                 "consumes": [
@@ -60,7 +82,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "短链接ID",
+                        "description": "片段ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -74,11 +96,8 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/users/login": {
-            "post": {
-                "description": "用户登录接口",
+            },
+            "put": {
                 "consumes": [
                     "application/json"
                 ],
@@ -86,17 +105,24 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "User"
+                    "pastes"
                 ],
-                "summary": "用户登录",
+                "summary": "更新代码片段",
                 "parameters": [
                     {
-                        "description": "登录信息",
+                        "type": "string",
+                        "description": "片段ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "请求参数",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.LoginRequest"
+                            "$ref": "#/definitions/model.UpdatePasteRequest"
                         }
                     }
                 ],
@@ -104,41 +130,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.LoginResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/users/register": {
-            "post": {
-                "description": "用户注册接口",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "User"
-                ],
-                "summary": "用户注册",
-                "parameters": [
-                    {
-                        "description": "注册信息",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.RegisterRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/model.RegisterResponse"
+                            "$ref": "#/definitions/model.PasteResponse"
                         }
                     }
                 }
@@ -150,7 +142,8 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "content",
-                "language"
+                "language",
+                "title"
             ],
             "properties": {
                 "content": {
@@ -158,38 +151,11 @@ const docTemplate = `{
                 },
                 "language": {
                     "type": "string"
-                }
-            }
-        },
-        "model.LoginRequest": {
-            "type": "object",
-            "required": [
-                "password",
-                "username"
-            ],
-            "properties": {
-                "password": {
+                },
+                "title": {
                     "type": "string"
                 },
-                "username": {
-                    "description": "登录时不需要太严格，只要求必填即可",
-                    "type": "string"
-                }
-            }
-        },
-        "model.LoginResponse": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
-                },
-                "username": {
+                "visibility": {
                     "type": "string"
                 }
             }
@@ -203,49 +169,47 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "id": {
+                    "type": "integer"
+                },
                 "language": {
                     "type": "string"
                 },
-                "short_link": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.RegisterRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "password",
-                "username"
-            ],
-            "properties": {
-                "email": {
-                    "description": "Email: 邮箱",
-                    "type": "string"
-                },
-                "password": {
-                    "description": "Password: 密码",
-                    "type": "string",
-                    "minLength": 8
-                },
-                "username": {
-                    "description": "Username: 用户名\nrequired: 必填字段\nmin=3: 最少3个字符\nmax=20: 最多20个字符\nalphanum: 只能包含字母和数字（不能有特殊字符、空格）",
-                    "type": "string",
-                    "maxLength": 20,
-                    "minLength": 3
-                }
-            }
-        },
-        "model.RegisterResponse": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "user_id": {
+                "owner_id": {
                     "type": "integer"
                 },
-                "username": {
+                "short_link": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "visibility": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.UpdatePasteRequest": {
+            "type": "object",
+            "required": [
+                "content",
+                "language",
+                "title"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "visibility": {
                     "type": "string"
                 }
             }

@@ -2,159 +2,136 @@ package service
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
 	"errors"
 	"testing"
-	"time"
 
-	"project/services/paste/db"
+	"project/common/dberr"
+	"project/services/paste/model"
 
 	"go.uber.org/zap"
 )
 
 type mockPasteRepo struct {
-	createFn   func(ctx context.Context, params *db.CreatePasteParams) (*db.Paste, error)
-	getFn      func(ctx context.Context, shortLink string) (*db.Paste, error)
-	createCall int
-	getCall    int
+	createFn      func(ctx context.Context, ownerID int64, params *model.CreatePasteRequest, shortLink string) (*model.PasteResponse, error)
+	getByIDFn     func(ctx context.Context, id int64) (*model.PasteResponse, error)
+	listByOwnerFn func(ctx context.Context, ownerID int64) ([]model.PasteResponse, error)
+	updateFn      func(ctx context.Context, ownerID, id int64, params *model.UpdatePasteRequest) (*model.PasteResponse, error)
 }
 
-func (m *mockPasteRepo) Create(ctx context.Context, params *db.CreatePasteParams) (*db.Paste, error) {
-	m.createCall++
+func (m *mockPasteRepo) Create(ctx context.Context, ownerID int64, params *model.CreatePasteRequest, shortLink string) (*model.PasteResponse, error) {
 	if m.createFn != nil {
-		return m.createFn(ctx, params)
+		return m.createFn(ctx, ownerID, params, shortLink)
 	}
 	return nil, errors.New("createFn not implemented")
 }
 
-func (m *mockPasteRepo) GetByShortLink(ctx context.Context, shortLink string) (*db.Paste, error) {
-	m.getCall++
-	if m.getFn != nil {
-		return m.getFn(ctx, shortLink)
+func (m *mockPasteRepo) GetByID(ctx context.Context, id int64) (*model.PasteResponse, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, id)
 	}
-	return nil, errors.New("getFn not implemented")
+	return nil, errors.New("getByIDFn not implemented")
 }
 
-type mockCache struct {
-	getFn      func(ctx context.Context, key string) (string, error)
-	setFn      func(ctx context.Context, key string, value string, exp time.Duration) error
-	delFn      func(ctx context.Context, keys ...string) error
-	setCall    int
-	lastSetKey string
-	lastSetVal string
+func (m *mockPasteRepo) ListByOwner(ctx context.Context, ownerID int64) ([]model.PasteResponse, error) {
+	if m.listByOwnerFn != nil {
+		return m.listByOwnerFn(ctx, ownerID)
+	}
+	return nil, errors.New("listByOwnerFn not implemented")
 }
 
-func (m *mockCache) Get(ctx context.Context, key string) (string, error) {
-	if m.getFn != nil {
-		return m.getFn(ctx, key)
+func (m *mockPasteRepo) Update(ctx context.Context, ownerID, id int64, params *model.UpdatePasteRequest) (*model.PasteResponse, error) {
+	if m.updateFn != nil {
+		return m.updateFn(ctx, ownerID, id, params)
 	}
-	return "", errors.New("getFn not implemented")
-}
-
-func (m *mockCache) Set(ctx context.Context, key string, value string, exp time.Duration) error {
-	m.setCall++
-	m.lastSetKey = key
-	m.lastSetVal = value
-	if m.setFn != nil {
-		return m.setFn(ctx, key, value, exp)
-	}
-	return nil
-}
-
-func (m *mockCache) Del(ctx context.Context, keys ...string) error {
-	if m.delFn != nil {
-		return m.delFn(ctx, keys...)
-	}
-	return nil
+	return nil, errors.New("updateFn not implemented")
 }
 
 func TestNewPasteService(t *testing.T) {
-	svc := NewPasteService(&mockPasteRepo{}, &mockCache{}, zap.NewNop())
+	svc := NewPasteService(&mockPasteRepo{}, zap.NewNop())
 	if svc == nil {
 		t.Fatal("NewPasteService() 返回了 nil")
 	}
 }
 
-func TestGetByShortLink_CacheHit(t *testing.T) {
-	expected := &db.Paste{
-		ShortLink: "abc12345",
-		Content:   "hello",
-		Language:  "go",
-	}
-	buf, err := json.Marshal(expected)
-	if err != nil {
-		t.Fatalf("准备缓存数据失败: %v", err)
-	}
-
+func TestListMine(t *testing.T) {
 	repo := &mockPasteRepo{
-		getFn: func(ctx context.Context, shortLink string) (*db.Paste, error) {
-			t.Fatal("缓存命中时不应访问 repo")
-			return nil, nil
-		},
-	}
-	cache := &mockCache{
-		getFn: func(ctx context.Context, key string) (string, error) {
-			if key != "paste:abc12345" {
-				t.Fatalf("缓存 key 不对, got=%s", key)
+		listByOwnerFn: func(ctx context.Context, ownerID int64) ([]model.PasteResponse, error) {
+			if ownerID != 7 {
+				t.Fatalf("ownerID 不匹配: %d", ownerID)
 			}
-			return string(buf), nil
+			return []model.PasteResponse{{ID: 1, OwnerID: 7, Title: "hello"}}, nil
 		},
 	}
 
-	svc := NewPasteService(repo, cache, zap.NewNop())
-	got, err := svc.GetByShortLink(context.Background(), "abc12345")
+	svc := NewPasteService(repo, zap.NewNop())
+	list, err := svc.ListMine(context.Background(), 7)
 	if err != nil {
-		t.Fatalf("GetByShortLink() 返回错误: %v", err)
+		t.Fatalf("ListMine() 返回错误: %v", err)
 	}
 
-	if got.ShortLink != expected.ShortLink || got.Content != expected.Content || got.Language != expected.Language {
-		t.Fatalf("缓存命中返回值不符合预期, got=%+v", got)
-	}
-	if repo.getCall != 0 {
-		t.Fatalf("缓存命中不应访问 repo, 实际访问次数=%d", repo.getCall)
+	if len(list) != 1 || list[0].Title != "hello" {
+		t.Fatalf("ListMine() 返回值不符合预期: %+v", list)
 	}
 }
 
-func TestGetByShortLink_CacheMissFallsBackToRepoAndSetCache(t *testing.T) {
-	expected := &db.Paste{
-		ShortLink: "k9Zx1Qwe",
-		Content:   "world",
-		Language:  "rust",
-		ExpiresAt: sql.NullTime{Valid: false},
-	}
-
+func TestUpdate_ForbiddenWhenOwnerMismatch(t *testing.T) {
 	repo := &mockPasteRepo{
-		getFn: func(ctx context.Context, shortLink string) (*db.Paste, error) {
-			if shortLink != "k9Zx1Qwe" {
-				t.Fatalf("repo 查询参数不对, got=%s", shortLink)
+		getByIDFn: func(ctx context.Context, id int64) (*model.PasteResponse, error) {
+			return &model.PasteResponse{ID: id, OwnerID: 100, Title: "old"}, nil
+		},
+	}
+
+	svc := NewPasteService(repo, zap.NewNop())
+	_, err := svc.Update(context.Background(), 101, 1, &model.UpdatePasteRequest{
+		Title:    "new",
+		Content:  "code",
+		Language: "go",
+	})
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("期望 ErrForbidden, 实际: %v", err)
+	}
+}
+
+func TestUpdate_Success(t *testing.T) {
+	repo := &mockPasteRepo{
+		getByIDFn: func(ctx context.Context, id int64) (*model.PasteResponse, error) {
+			return &model.PasteResponse{ID: id, OwnerID: 7, Title: "old"}, nil
+		},
+		updateFn: func(ctx context.Context, ownerID, id int64, params *model.UpdatePasteRequest) (*model.PasteResponse, error) {
+			if ownerID != 7 || id != 3 {
+				t.Fatalf("更新参数不匹配 ownerID=%d id=%d", ownerID, id)
 			}
-			return expected, nil
-		},
-	}
-	cache := &mockCache{
-		getFn: func(ctx context.Context, key string) (string, error) {
-			return "", errors.New("cache miss")
+			return &model.PasteResponse{ID: id, OwnerID: ownerID, Title: params.Title}, nil
 		},
 	}
 
-	svc := NewPasteService(repo, cache, zap.NewNop())
-	got, err := svc.GetByShortLink(context.Background(), "k9Zx1Qwe")
+	svc := NewPasteService(repo, zap.NewNop())
+	res, err := svc.Update(context.Background(), 7, 3, &model.UpdatePasteRequest{
+		Title:    "new-title",
+		Content:  "code",
+		Language: "go",
+	})
 	if err != nil {
-		t.Fatalf("GetByShortLink() 返回错误: %v", err)
+		t.Fatalf("Update() 返回错误: %v", err)
+	}
+	if res.Title != "new-title" {
+		t.Fatalf("Update() 返回值不符合预期: %+v", res)
+	}
+}
+
+func TestUpdate_RepoNotFoundMapsForbidden(t *testing.T) {
+	repo := &mockPasteRepo{
+		getByIDFn: func(ctx context.Context, id int64) (*model.PasteResponse, error) {
+			return &model.PasteResponse{ID: id, OwnerID: 9, Title: "old"}, nil
+		},
+		updateFn: func(ctx context.Context, ownerID, id int64, params *model.UpdatePasteRequest) (*model.PasteResponse, error) {
+			return nil, dberr.ErrNoRows
+		},
 	}
 
-	if got.ShortLink != expected.ShortLink {
-		t.Fatalf("返回 shortLink 不对, 期望=%s 实际=%s", expected.ShortLink, got.ShortLink)
+	svc := NewPasteService(repo, zap.NewNop())
+	_, err := svc.Update(context.Background(), 9, 1, &model.UpdatePasteRequest{Title: "n", Content: "c", Language: "go"})
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("期望 ErrForbidden, 实际: %v", err)
 	}
-	if repo.getCall != 1 {
-		t.Fatalf("缓存未命中应访问 repo 1 次, 实际=%d", repo.getCall)
-	}
-	if cache.setCall != 1 {
-		t.Fatalf("缓存未命中后应回写缓存 1 次, 实际=%d", cache.setCall)
-	}
-	if cache.lastSetKey != "paste:k9Zx1Qwe" {
-		t.Fatalf("回写缓存 key 不对, got=%s", cache.lastSetKey)
-	}
-
 }

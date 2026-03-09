@@ -10,9 +10,14 @@
             <span class="logo-text">GopherPaste</span>
           </div>
           <div class="nav-actions">
-            <el-button text @click="$router.push('/')">首页</el-button>
-            <el-button text @click="$router.push('/auth')">登录 / 注册</el-button>
+            <el-button v-if="isAuthenticated" text @click="$router.push('/')">我的代码</el-button>
+            <el-button v-if="isAuthenticated" text @click="$router.push('/snippets/new')">新建片段</el-button>
+            <el-button v-else text @click="$router.push('/auth')">登录 / 注册</el-button>
             <el-button text @click="$router.push('/about')">关于</el-button>
+            <template v-if="isAuthenticated">
+              <span class="user-name">{{ authStore.user?.username }}</span>
+              <el-button text type="danger" @click="handleLogout">退出登录</el-button>
+            </template>
             <a href="https://github.com" target="_blank" class="github-link">
               <el-button text>GitHub</el-button>
             </a>
@@ -38,7 +43,25 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { EditPen } from '@element-plus/icons-vue'
+import { useAuthStore } from '@/stores/auth'
+
+const router = useRouter()
+const authStore = useAuthStore()
+const isAuthenticated = computed(() => authStore.isAuthenticated)
+
+onMounted(() => {
+  authStore.initFromStorage()
+})
+
+const handleLogout = () => {
+  authStore.logout()
+  ElMessage.success('已退出登录')
+  router.push('/auth')
+}
 </script>
 
 <style lang="scss">
@@ -96,7 +119,14 @@ body {
 
   .nav-actions {
     display: flex;
+    align-items: center;
     gap: 10px;
+
+    .user-name {
+      color: #606266;
+      font-size: 14px;
+      margin-left: 4px;
+    }
 
     .github-link {
       text-decoration: none;
